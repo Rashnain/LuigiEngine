@@ -27,6 +27,8 @@ using namespace std;
 #include "Planet.cpp"
 #include "PlanetPhong.cpp"
 
+#include "ECS.h"
+
 void processInput(GLFWwindow *window);
 
 // settings
@@ -160,7 +162,7 @@ int main()
 
     /****************************************/
 
-    // TODO [TP03] Scene Tree
+    /* // TODO [TP03] Scene Tree
     SceneObject world;
 
     // TODO [TP01] Camera - (Model) (View) Projection
@@ -236,6 +238,8 @@ int main()
     terrain.transform.setPos(vec3(-1*terrainSize.x, 1, -1*terrainSize.x));
     suzanne->transform.setPos({0.5, 0.25, 0.5});
     suzanne->transform.setScale(vec3(0.1f));
+
+
     cameraWorldSide->transform.addPos({0, 0, 35});
     cameraWorldSide->speed = 5;
     cameraWorldUp->transform.addPos({0, 50, 0});
@@ -243,7 +247,7 @@ int main()
     cameraWorldUp->transform.addEulerRot({-90, 0, 0});
     cameraTerrain->transform.addPos({0, 2.5, 15});
     cameraTerrain->speed = 0;
-
+ */
     lastFrame = glfwGetTime();
 
     do {
@@ -269,9 +273,9 @@ int main()
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        if (!paused)
+        /* if (!paused)
             world.updateSelfAndChildren(deltaTime);
-        world.renderSelfAndChildren();
+        world.renderSelfAndChildren(); */
 
         // Swap buffers
         glfwSwapBuffers(window);
