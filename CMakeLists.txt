@@ -36,6 +36,9 @@ include_directories(
 	external/glfw-3.1.2/include/
 	external/glm-0.9.7.1/
 	external/glew-1.13.0/include/
+	external/imgui/backends
+	external/imgui/
+	external/ImGuiFileDialog/
 	.
 )
 
@@ -54,18 +57,28 @@ add_definitions(
 )
 
 # LuigiEngine
+
 add_executable(LuigiEngine
-	LuigiEngine/LuigiEngine.cpp
-	common/shader.cpp
-	common/shader.hpp
-	common/controls.cpp
-	common/controls.hpp
-	common/texture.cpp
-	common/texture.hpp
-	common/objloader.cpp
-	common/objloader.hpp
-	common/vboindexer.cpp
-	common/vboindexer.hpp)
+	LuigiEngine/SceneRenderer.cpp 
+    LuigiEngine/LuigiEngine.cpp
+    common/shader.cpp
+    common/shader.hpp
+    common/controls.cpp
+    common/controls.hpp
+    common/texture.cpp
+    common/texture.hpp
+    common/vboindexer.cpp
+    common/vboindexer.hpp
+    external/imgui/imgui.cpp
+    external/imgui/imgui_draw.cpp
+    external/imgui/imgui_demo.cpp
+    external/imgui/imgui_tables.cpp
+    external/imgui/imgui_widgets.cpp
+    external/imgui/backends/imgui_impl_glfw.cpp
+    external/imgui/backends/imgui_impl_opengl3.cpp
+    external/ImGuiFileDialog/ImGuiFileDialog.cpp
+)
+
 target_link_libraries(LuigiEngine
 	${ALL_LIBS}
 )

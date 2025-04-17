@@ -3,6 +3,6 @@
 	url = https://github.com/aiekick/ImGuiFileDialog.git
  
 [submodule "external/imgui"]
- 	path = external/imgui
- 	url = https://github.com/ocornut/imgui.git
-    branch = docking
+	path = external/imgui
+	url = https://github.com/ocornut/imgui.git
+	branch = docking

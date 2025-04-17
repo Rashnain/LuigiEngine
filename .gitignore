@@ -3,7 +3,12 @@
 !*.*
 !*/
 
+
+
 dossier_build
+
+#ignore sh
+*.sh
 
 # C++
 *.o
