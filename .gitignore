@@ -1,0 +1,14 @@
+# Ignore files without extension
+*
+!*.*
+!*/
+
+# C++
+*.o
+.cmake/
+cmake-build-debug/
+
+# IDE
+.idea/
+.vscode/
+build/
