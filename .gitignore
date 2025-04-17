@@ -3,6 +3,8 @@
 !*.*
 !*/
 
+dossier_build
+
 # C++
 *.o
 .cmake/
