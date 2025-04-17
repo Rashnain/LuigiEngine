@@ -5,8 +5,10 @@
 
 # C++
 *.o
+*.out
 .cmake/
 cmake-build-debug/
+build/
 
 # IDE
 .idea/
