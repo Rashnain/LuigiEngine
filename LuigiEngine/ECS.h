@@ -1,186 +1,248 @@
-#include <iostream>
-#include <unordered_map>
-#include <cstdint>
-#include <vector>
-#include <typeindex>
-#include <memory>
+#pragma once
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <utility>
+#include <vector>
+
+using namespace std;
+
+const uint32_t MAX_ENTITIES = 1024; //ne pas mettre valeur max uint32 utilser au maximum max(uint32) -1
+const uint32_t INVALID = MAX_ENTITIES - 1; //permet de savoir si un composant est valide (contient un composant pour une certaine entity)
 
 using Entity = uint32_t;
 
-struct IComponentStorage {
-    virtual void remove(Entity entity) = 0;
+class IComponentStorage {
+public:
     virtual ~IComponentStorage() = default;
+    virtual const bool has(Entity entity) = 0;
+    virtual void remove(Entity entity) = 0;
 };
 
-//globalement c'est juste une hashmap qui contient des pairs (entity, composant) pour un certain type de composant
-template<typename Component>
-class ComponentStorage : public IComponentStorage {
-public:
-    void add(Entity entity, Component component) {
-        m_data[entity] = std::move(component);
+template<typename Component> //rend la classe générique et utilisable avec n'importe quelle struct Component
+class ComponentStorage : public IComponentStorage{ //stocke les composants pour un unique type de composant 
+    private:
+    //utilise un sparse set https://www.geeksforgeeks.org/sparse-set/
+    vector<uint32_t> sparse; // permet de lier les entity à leur composant en gardant les entites proches les unes des autres
+    vector<Component> components; //contient les composants 
+    vector<Entity> entities; //contient les entités qui ont ce composant  
+
+    public:
+
+    ComponentStorage(){
+        sparse.resize(MAX_ENTITIES, INVALID);
+        entities.reserve(MAX_ENTITIES); //reserve la memoire mais n'initialise rien (apres reserve la entities.size() = 0 toujours)
+        components.reserve(MAX_ENTITIES);
     }
 
-    void remove(Entity entity) {
-        m_data.erase(entity);
+    inline const bool has(Entity entity){return sparse[entity] != INVALID;}
+
+    inline Component & get(Entity entity) {return components[sparse[entity]];}
+
+    inline const std::vector<Entity> & getEntities() {return entities;}
+
+    void add(Entity entity, Component component){
+
+        if(!has(entity)){ //si l'entity n'as pas deja ce composant
+            sparse[entity] = entities.size();
+            entities.push_back(entity); 
+            components.push_back( move(component) ); //move permet de bouger completement le composant dans l'array pour ne pas qu'il soit supprimer si il sort du scope 
+
+        }else{
+            components[sparse[entity]] = std::move(component);
+        }
+
     }
 
-    bool has(Entity entity) const{
-        return m_data.find(entity) != m_data.end();
+    void remove(Entity entity){
+        assert(has(entity));
+
+        uint32_t index = sparse[entity];
+
+        Entity lastEntity = entities.back(); //on recup le dernier element pour le mettre a la place de celui qu'on supprime
+        Component lastComponent = components.back();
+
+        //on le remplace
+        entities[index] = lastEntity; 
+        components[index] = std::move(lastComponent);
+
+        sparse[lastEntity] = index; //met a jour le lien
+        
+        entities.pop_back();
+        components.pop_back();
+        
+        sparse[entity] = INVALID;
     }
 
-    Component & get(Entity entity) {
-        return m_data.at(entity);
+};
+
+template<typename... Components> //les ... indique qu'on peut passer plusieur composants View<Position, Velocity> 
+class View{ //peut etre ameliorer
+
+    tuple<ComponentStorage<Components>*...> storages;  //un tuple de storage 
+
+public: 
+    View( tuple<ComponentStorage<Components>*...>  storages_in){
+        storages = storages_in;
     }
 
-    const std::unordered_map<Entity, Component> & data() const {
-        return m_data;
+    template<typename Component>
+    Component & get(Entity e) const {
+        ComponentStorage<Component> * storage = std::get<ComponentStorage<Component>*>(storages);
+        assert(storage->has(e));
+        return storage->get(e);
     }
+
+    template<typename function> 
+    void each(function&& func){ // le && permet de garder le type de passage des arguments(reference ou copie) un peu comme std::forward
+
+        auto storageSmallest = std::get<0>(storages); //trouver un moyen simple de choisir le plus petit des storages
+
+        for (Entity e : storageSmallest->getEntities()) {
+            if ((std::get<ComponentStorage<Components>*>(storages)->has(e) && ...)) { //si l entity a tous les composants
+
+                func(e, std::get<ComponentStorage<Components>*>(storages)->get(e)...);
+
+            }
+        }
+    }
+
+    //bien aidé par chatGPT ici c etait galere
+    class Iterator {
+        public:
+            using Iter = typename vector<Entity>::const_iterator;
+        
+            Iterator(Iter current, Iter end, const tuple<ComponentStorage<Components>*...>& storages): current(current), end(end), storages(storages) {
+                skip_invalid();
+            }
+        
+            Entity operator*() const { return *current; }
+        
+            Iterator& operator++() {
+                ++current;
+                skip_invalid();
+                return *this;
+            }
+        
+            bool operator!=(const Iterator& other) const { return current != other.current; }
+        
+        private:
+            Iter current, end;
+            const tuple<ComponentStorage<Components>*...> & storages;
+        
+            void skip_invalid() {
+                while (current != end && !( std::get<ComponentStorage<Components>*>(storages)->has(*current) && ...)) {
+                    ++current;
+                }
+            }
+    };
+
+    Iterator begin() const {
+        const auto& entities = std::get<0>(storages)->getEntities();
+        return Iterator(entities.begin(), entities.end(), storages);
+    }
+
+    Iterator end() const {
+        const auto& entities = std::get<0>(storages)->getEntities();
+        return Iterator(entities.end(), entities.end(), storages);
+    }
+
+};
+
+/* exemple :
+    auto view = registry.view<Position, Velocity>();
+
+    view.each([](Entity e, const Position & pos, Velocity & vel) {
+
+        std::cout << "Entity " << e << " has pos (" << pos.x << ", " << pos.y << ")\n";
+
+    }); 
+*/
+
+
+class Registry{
 
 private:
-    std::unordered_map<Entity, Component> m_data;
-};
+    Entity nextEntityID = 0;
+    vector<Entity> FreeIDs; //les id des entites qu'on a detruit pour pouvoir les reutiliser
 
-//gestionnaire d'entity
-class Registry {
+    vector<IComponentStorage *> componentStorages; //permet de savoir quelle composant sont utilisé    
+
+    template<typename Component>
+    ComponentStorage<Component> & getComponentStorage(){
+        static ComponentStorage<Component> storage; //le static assure que ce n'est initialise qu'une fois et que donc on reutilise le meme storage chaque fois
+
+        static bool isKnown = false; 
+
+        if(!isKnown){ //permet de savoir quelle type de composant on utilise
+            isKnown = true;
+            componentStorages.push_back(&storage);
+        }
+
+        return storage;
+    }
+
 public:
-    Entity create() {
-        return m_nextEntity++;
+    inline Entity create() {
+        if(FreeIDs.empty()){
+            return nextEntityID++;
+        }else{
+            Entity newID = FreeIDs.back(); //on recup l'ID du dernier element detruit
+            FreeIDs.pop_back();
+            return newID;
+        }
     }
 
-    //permet d'ajouter un composant a une entity avec emplace<NomComposant>(entityid, args composant)
-    template<typename Component, typename... Args>
-    Component& emplace(Entity entity, Args&&... args) {
-        auto& storage = getStorage<Component>();
-        storage.add(entity, Component{ std::forward<Args>(args)... });
+    //on itere a travers tous les types de composant pour essayer de supprimer l entity
+    void destroy(Entity entity){
 
-        auto& component = storage.get(entity);
-        component.onAttach(entity, *this);
+        for (IComponentStorage* storage : componentStorages) {
+            if (storage->has(entity)) {
+                storage->remove(entity);
+            }
+        }
 
-        return component;
+        FreeIDs.push_back(entity);
+
     }
 
-
-    //retire un composant avec remove<NomComposant>
     template<typename Component>
-    void remove(Entity entity) {
-        auto& storage = getStorage<Component>();
-
-        auto& component = storage.get(entity);
-        component.onDetach(entity, *this);
-
-        storage.remove(entity);
+    inline bool has(Entity entity){
+        return getComponentStorage<Component>().has(entity);
     }
 
-    //get<Composant>(entityid)
     template<typename Component>
-    Component& get(Entity entity) {
-        auto& storage = getStorage<Component>();
+    inline Component & get(Entity entity){
+        return getComponentStorage<Component>().get(entity);
+    }
+
+    template<typename Component>
+    inline void remove(Entity entity){
+        return getComponentStorage<Component>().remove(entity);
+    }
+
+    template<typename Component, typename... Arguments>
+    Component & emplace(Entity entity, Arguments &&... arguments){ //ajoute un composant a une entite 
+        ComponentStorage<Component> & storage = getComponentStorage<Component>();
+
+        storage.add(entity , Component{ forward<Arguments>(arguments)... } ); //Component{ args } permet d'initialiser le composant
+                                                                           //forward permet de conserver les arguments (si ils sont passe par reference, on les passe par reference)
+                                                                           // si ils sont passés par copie on utilise les copies
+
         return storage.get(entity);
     }
 
-    //has<Composant>(entityid)
-    template<typename Component>
-    bool has(Entity entity) const {
-        return getStorage<Component>().has(entity);
-    }
 
-    //permet d'obtenir toutes les entitity avec les composants demandes
-    //registry.view<Position, Velocity>([](Entity e, Position& pos, Velocity& vel){ boucle sur toutes les entités avec position et velocity }
-    template<typename... Components, typename Func>
-    void view(Func&& func) {
-
-        const auto& storage = getStorage<std::tuple_element_t<0, std::tuple<Components...>>>().data();
-        for (const auto& [entity, comp] : storage) {
-            if ((getStorage<Components>().has(entity) && ...)) {
-                func(entity, getStorage<Components>().get(entity)...);
-            }
-        }
+    template<typename... Components>
+    View<Components...> view() {
+        return View<Components...>( make_tuple( &getComponentStorage<Components>()...) );
     }
 
 
-    //comme view mais permet d'itérer sur les paires uniques d'entités 
-    /*
-    registry.viewPairs<Position>([](Entity a, Entity b, Position& posA, Position& posB) {
-        float dist = glm::distance(posA.pos, posB.pos);
-        if (dist < 1.0f) {
-            std::cout << "Entities " << a << " and " << b << " are too close!" << std::endl;
-        }
-    }); 
-    */
-    template<typename... Components, typename Func>
-    void viewPairs(Func&& fn) {
-        auto view = view<Components...>();
-        auto begin = view.begin();
-        auto end = view.end();
-
-        for (auto itA = begin; itA != end; ++itA) {
-            Entity a = *itA;
-            auto& compA = std::forward_as_tuple(get<Components>(*itA)...);
-
-            for (auto itB = std::next(itA); itB != end; ++itB) {
-                Entity b = *itB;
-                auto& compB = std::forward_as_tuple(get<Components>(*itB)...);
-
-                std::apply([&](auto&... compsA) {
-                    std::apply([&](auto&... compsB) {
-                        fn(a, b, compsA..., compsB...);
-                    }, compB);
-                }, compA);
-            }
-        }
-    }
 
 
-private:
-    Entity m_nextEntity = 0;
-    std::unordered_map<std::type_index, std::unique_ptr<IComponentStorage>> m_componentPools;
-
-    //renvoie le storage
-    template<typename Component>
-    ComponentStorage<Component>& getStorage() const {
-        auto typeId = std::type_index(typeid(Component));
-        auto it = m_componentPools.find(typeId);
-        assert(it != m_componentPools.end());
-        return *static_cast<ComponentStorage<Component>*>(it->second.get());
-    }
-
-    //crée le storage pour le composant si il n'existe pas 
-    template<typename Component>
-    ComponentStorage<Component>& getStorage() {
-        auto typeId = std::type_index(typeid(Component));
-        auto& ptr = m_componentPools[typeId];
-        if (!ptr) {
-            ptr = std::make_unique<ComponentStorage<Component>>();
-        }
-        return *static_cast<ComponentStorage<Component>*>(ptr.get());
-    }
 };
 
-//un composant doit avoir la fonction onAttach, onDetach meme si vide
-struct Position {
-    float x, y;
-    void onAttach(Entity entity, Registry & registry) {}
-    void onDetach(Entity entity, Registry & registry) {}
-};
 
-struct Velocity {
-    float dx, dy;
 
-    void onAttach(Entity entity, Registry & registry) {
-        std::cout << "Velocity attached to " << entity << "\n";
-    }
-    void onDetach(Entity entity, Registry & registry) {}
-};
-
-class MovementSystem {
-    public:
-        void update(Registry & registry){
-            //boucle sur toutes les entity avec les composants position et velocity
-            registry.view<Position, Velocity>([](Entity e, Position & pos, Velocity & vel) {
-                pos.x += vel.dx;
-                pos.y += vel.dy;
-                std::cout << "Entity " << e << " moved to (" << pos.x << ", " << pos.y << ")\n";
-            });
-        }
-};
+    
