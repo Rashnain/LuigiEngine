@@ -218,7 +218,13 @@ public:
 
     template<typename Component>
     inline void remove(Entity entity){
-        return getComponentStorage<Component>().remove(entity);
+
+        auto& storage = getComponentStorage<Component>();
+
+        Component& component = storage.get(entity);  
+        component.onDetach(*this, entity); 
+
+        storage.remove(entity);
     }
 
     template<typename Component, typename... Arguments>
@@ -227,9 +233,12 @@ public:
 
         storage.add(entity , Component{ forward<Arguments>(arguments)... } ); //Component{ args } permet d'initialiser le composant
                                                                            //forward permet de conserver les arguments (si ils sont passe par reference, on les passe par reference)
-                                                                           // si ils sont passés par copie on utilise les copies
+                                                                            // si ils sont passés par copie on utilise les copies
+        Component & component = storage.get(entity);
 
-        return storage.get(entity);
+        component.onAttach(*this, entity);
+
+        return component;
     }
 
 
@@ -238,6 +247,15 @@ public:
         return View<Components...>( make_tuple( &getComponentStorage<Components>()...) );
     }
 
+
+    void clear() {
+        for (IComponentStorage* storage : componentStorages) {
+            delete storage;
+        }
+        componentStorages.clear();
+        FreeIDs.clear();
+        nextEntityID = 0;
+    }
 
 
 

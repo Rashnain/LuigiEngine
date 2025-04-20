@@ -1,9 +1,14 @@
 #ifndef SCENEOBJECT_H
 #define SCENEOBJECT_H
 
-class SceneCamera;
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "Transform.hpp"
+#include <vector>
+
+class SceneCamera;
+
+using namespace std;
 
 class SceneObject
 {

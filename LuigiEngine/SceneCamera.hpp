@@ -1,40 +1,37 @@
-#ifndef SCENECAMERA_H
-#define SCENECAMERA_H
-
 #pragma once
 
-#include "SceneObject.hpp"
+#include <glm/glm.hpp>
+#include "ECS.h"
+#include "Transform.hpp"
+#include <glm/gtc/matrix_transform.hpp>
 
-class SceneCamera : public SceneObject
-{
-    mat4 projection;
-    mat4 view;
-    mat4 viewProj;
-    vec3 target{0, 0, -1};
-    vec3 up{0, 1, 0};
-    vec3 right;
 
-    void updateView();
+struct CameraComponent {
+    glm::mat4 projection{1.0f};
+    glm::mat4 view{1.0f};
+    glm::mat4 viewProj{1.0f};
 
-protected:
-    void update(double deltaTime) override;
+    glm::vec3 target{0, 0, -1};
+    glm::vec3 up{0, 1, 0};
+    glm::vec3 right = glm::normalize(glm::cross(target, up));
 
-public:
     bool viewProjChanged = true;
     bool justDefinedMain = true;
-    float speed = 1;
+    float speed = 1.0f;
 
-    explicit SceneCamera(mat4& projection);
+    CameraComponent() = default;
+    explicit CameraComponent(const glm::mat4& proj) : projection(proj) {}
 
-    mat4 getViewProjMatrix();
-
-    vec3 getLocalTarget();
-
-    vec3 getLocalUp();
-
-    vec3 getLocalRight();
-
-    void setProjection(mat4& projection);
+    void onAttach(Registry & registry, Entity entity){};
+    void onDetach(Registry & registry, Entity entity){};
 };
 
-#endif //SCENECAMERA_H
+
+class CameraSystem {
+public:
+    void update(Registry& registry, float deltaTime);
+    void computeViewProj(Registry& registry);
+
+private:
+    static void updateView( Transform& transform, CameraComponent& camera);
+};

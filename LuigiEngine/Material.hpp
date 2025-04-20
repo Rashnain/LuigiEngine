@@ -1,3 +1,5 @@
+#pragma once
+
 struct Material {
 	float ambiant;
 	float diffuse;
