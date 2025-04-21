@@ -3,7 +3,7 @@
 extern int* nbViewProjUpdate;
 extern bool* optimizeMVP;
 
-void CameraSystem::update(Registry& registry, float deltaTime) {
+void CameraSystem::update(Registry& registry) {
     auto view = registry.view<CameraComponent, Transform>();
 
     for (auto entity : view) {

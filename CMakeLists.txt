@@ -68,6 +68,9 @@ add_executable(LuigiEngine
 	common/vboindexer.hpp
 	LuigiEngine/Transform.cpp
 	LuigiEngine/SceneMesh.cpp
+	LuigiEngine/RenderSystem.cpp
+	LuigiEngine/Mesh.cpp
+	LuigiEngine/SceneCamera.cpp
 )
 target_link_libraries(LuigiEngine
 	${ALL_LIBS}

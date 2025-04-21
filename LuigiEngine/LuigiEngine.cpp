@@ -4,6 +4,9 @@
 #include <vector>
 #include <iostream>
 
+#include "LuigiEngine/SceneMesh.hpp"
+#include "Mesh.hpp"
+
 // Include GLEW
 #include <GL/glew.h>
 
@@ -166,6 +169,7 @@ int main()
 
     TransformSystem transformSystem;
     RenderSystem renderSystem = RenderSystem();
+    CameraSystem cameraSystem = CameraSystem();
      // TODO [TP03] Scene Tree
 
     //SceneObject world;
@@ -175,39 +179,38 @@ int main()
     Mesh* sphereLOD1 = new Mesh("models/sphereLOD1.obj");
     Mesh* sphereLOD2 = new Mesh("models/sphereLOD2.obj");
 
-    TextureComponent textureComponent;
-    textureComponent.texFiles.push_back("sun.jpg");
-    textureComponent.texUniforms.push_back("tex");
+    Mesh* suzanneLOD1 = new Mesh("models/suzanneLOD1.obj");
+    Mesh* suzanneLOD2 = new Mesh("models/suzanneLOD2.obj");
 
 
     GLuint simpleShaders = LoadShaders("shaders/vertex.glsl", "shaders/fragment.glsl");
     GLuint phongShaders = LoadShaders("shaders/vertex_phong.glsl", "shaders/fragment_phong.glsl");
     GLuint terrainShaders = LoadShaders("shaders/vertex_terrain.glsl", "shaders/fragment_terrain.glsl");
 
+    /* quand on cree une mesh attache automatiquement un TextureComponent
+    TextureComponent textureComponent;
+    textureComponent.texFiles.push_back("sun.jpg");
+    textureComponent.texUniforms.push_back("tex"); */
+
     constexpr double day = 2*M_PI;
 
-    MeshComponent meshComponent = MeshComponent();
+    //on pourrait peut creer un ShaderComponent pour savoir quelle shader utilise et stocke les uniforms 
+    MeshComponent sphereMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, simpleShaders, {"sun.jpg"}, {"tex"}); 
 
-/*     Planet sun({{0, sphereLOD1}, {10, sphereLOD2}}, {"sun.jpg"}, {"tex"}, simpleShaders);
-    PlanetPhong mercury({{0, sphereLOD1}, {10, sphereLOD2}}, "mercury.jpg", "tex", // rayon 2 439 km - révolution 88 j - rotation 58 j - distance ~0.39 ua
-        phongShaders, day/58, radians(0.04f), 6 * 0.39, day/8.8, radians(7.0f));
-    PlanetPhong venus({{0, sphereLOD1}, {10, sphereLOD2}}, "venus.jpg", // rayon 6 051 km - révolution 224 j - rotation −243 j - distance ~0,723 ua
-        "tex", phongShaders, -day/243, radians(177.36f), 6 * 0.723, day/22.4, radians(3.39f));
-    PlanetPhong earth({{0, sphereLOD1}, {10, sphereLOD2}}, "earth.jpg", // rayon 6 378 km - révolution 365 j - rotation 1 j - distance 1 ua
-        "tex", phongShaders, day, radians(23.44f), 6, day/36.5);
-    PlanetPhong moon({{0, sphereLOD1}, {10, sphereLOD2}}, "moon.jpg", // rayon 1 737 km - révolution 27 j - rotation 27 j - distance 0,00257 ua
-        "tex", phongShaders, day/27, radians(6.68f), 0.00257 * 750, day/2.7, radians(5.14f));
- */
+    MeshComponent earthMeshComponent = MeshComponent({{0, sphereLOD1}, {35, suzanneLOD1}}, simpleShaders, {"earth.jpg"}, {"tex"});
+
+    MeshComponent moonMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, simpleShaders,{"moon.jpg"}, {"tex"} );
 
 
-    //on creer une entite pour chaque objet
     Entity cameraWorldSideEntity = registry.create();
-    Entity cameraWorldUpEntity = registry.create();
-    Entity cameraTerrainEntity = registry.create();
 
     Entity earthEntity = registry.create();
     Entity moonEntity = registry.create();
     Entity sunEntity = registry.create();
+
+    registry.emplace<MeshComponent>(sunEntity,sphereMeshComponent);
+    registry.emplace<MeshComponent>(earthEntity, earthMeshComponent);
+    registry.emplace<MeshComponent>(moonEntity, moonMeshComponent);
     
     // Projection matrix : 45 Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
     mat4 pers = perspective(radians(45.0f), 1.0f * SCR_WIDTH / SCR_HEIGHT, 0.1f, 1000.0f);
@@ -219,18 +222,17 @@ int main()
     renderSystem.activeCamera = cameraWorldSideEntity;
 
 
-    registry.emplace<Transform>(earthEntity);
-    registry.emplace<Transform>(moonEntity);
-    registry.emplace<Transform>(sunEntity);
+    registry.emplace<Transform>(earthEntity).setPos({5, 0, 0});
+    registry.emplace<Transform>(moonEntity).setPos({5, 0, 0});
+    registry.emplace<Transform>(sunEntity).setPos({0,0,0});
 
     registry.emplace<Hierarchy>(earthEntity, sunEntity, vector<Entity>{moonEntity});
 
 
-   
-
-    //SceneObject::setMainCamera(cameraTerrain);
-
     registry.get<Transform>(sunEntity).setScale(vec3(2));
+
+
+
     registry.get<Transform>(earthEntity).setScale(vec3(0.5));
     registry.get<Transform>(moonEntity).setScale(vec3(1737.0 / 6378));
 
@@ -261,10 +263,24 @@ int main()
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        vec3 rotationAngles = vec3(0.0f, currentFrame, 0.0f); 
+        quat rotationQuat = quat(rotationAngles);
+        registry.get<Transform>(sunEntity).setRot(rotationQuat);
+
+        rotationAngles = vec3(0.0f, currentFrame * 8, 0.0f); 
+        rotationQuat = quat(rotationAngles);
+        registry.get<Transform>(earthEntity).setRot(rotationQuat);
+
+        rotationAngles = vec3(0.0f, currentFrame * 5, 0.0f); 
+        rotationQuat = quat(rotationAngles);
+        registry.get<Transform>(moonEntity).setRot(rotationQuat);
+
+
 
         transformSystem.update(registry);
-
-        //renderSystem.render(registry);
+        cameraSystem.update(registry);
+        cameraSystem.computeViewProj(registry);
+        renderSystem.render(registry);
         
 
         // Swap buffers
@@ -277,8 +293,8 @@ int main()
            glfwWindowShouldClose(window) == 0 );
 
     // Cleanup VBO and shader
-    //world.clearSelfAndChildren();
-    registry.clear();
+
+    //registry.clear();
     glDeleteVertexArrays(1, &VertexArrayID);
 
     // Close OpenGL window and terminate GLFW

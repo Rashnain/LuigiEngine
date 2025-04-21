@@ -14,7 +14,7 @@
 
 class RenderSystem {
 public:
-    Entity activeCamera;
+    Entity activeCamera = INVALID;
 
     void render(Registry& registry);
 

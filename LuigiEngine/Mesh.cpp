@@ -1,6 +1,8 @@
 #include "Mesh.hpp"
 
 
+#include "external/OBJ_Loader.h"
+
 
 using namespace std;
 using namespace glm;
@@ -39,7 +41,3 @@ void loadOBJ(const char* fileName, vector<vec3>& vertices, vector<vec3>& normals
 }
 
 
-Mesh::Mesh(const string& objFile)
-{
-    loadOBJ(objFile.c_str(), vertices, normals, uvs, triangles);
-}

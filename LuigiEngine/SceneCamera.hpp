@@ -29,7 +29,7 @@ struct CameraComponent {
 
 class CameraSystem {
 public:
-    void update(Registry& registry, float deltaTime);
+    void update(Registry& registry);
     void computeViewProj(Registry& registry);
 
 private:

@@ -4,7 +4,9 @@
 #include <vector>
 #include <string>
 #include "glm/glm.hpp" 
-#include "external/OBJ_Loader.h"
+
+
+
 #include <cstdio>
 namespace objl {
     class Loader;
@@ -28,7 +30,9 @@ struct Mesh {
     Mesh() = default;
 
 
-    explicit Mesh(const string& objFile);
+    explicit Mesh(const string& objFile){
+        loadOBJ(objFile.c_str(), vertices, normals, uvs, triangles);
+    };
 };
 
 #endif // MESHLOADER_HPP
