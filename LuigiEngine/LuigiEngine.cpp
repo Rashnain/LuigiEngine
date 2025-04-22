@@ -249,11 +249,14 @@ int main()
     cameraTerrain->transform.addPos({0, 2.5, 15});
     cameraTerrain->speed = 0;
 
-    SceneRenderer & sceneRenderer = SceneRenderer::getInstance();
     Console& console = Console::getInstance();
 
     initImGui(window);
-
+    SceneRenderer& sceneRenderer = SceneRenderer::getInstance();
+    if (!sceneRenderer.setupFramebuffer(SCR_WIDTH, SCR_HEIGHT, 1.0f)) {
+        console.addLog("Failed to initialize Scene Renderer");
+    }
+    
     lastFrame = glfwGetTime();
 
     do {
