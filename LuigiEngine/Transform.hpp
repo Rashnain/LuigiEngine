@@ -1,6 +1,12 @@
 #ifndef TRANSFORM_H
 #define TRANSFORM_H
 
+#include <glm/glm.hpp>             // Core GLM functionality
+#include <glm/gtc/matrix_transform.hpp>  // For transformations
+#include <glm/gtc/quaternion.hpp>  // For quaternion rotation
+
+using namespace glm;
+
 class Transform
 {
     bool upToDateLocal = false;

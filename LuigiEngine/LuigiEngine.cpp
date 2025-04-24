@@ -19,6 +19,7 @@ using namespace glm;
 using namespace std;
 
 #include "common/shader.hpp"
+
 #include "SceneCamera.cpp"
 #include "SceneMesh.cpp"
 #include "SceneMeshPhong.cpp"
@@ -26,6 +27,10 @@ using namespace std;
 #include "Transform.cpp"
 #include "Planet.cpp"
 #include "PlanetPhong.cpp"
+#include "ImGui.hpp"
+#include "ImGuiConsole.hpp"
+#include "ImGuiHelper.hpp"
+#include "SceneRenderer.hpp" // #include "SceneCamera.cpp"
 
 void processInput(GLFWwindow *window);
 
@@ -244,6 +249,14 @@ int main()
     cameraTerrain->transform.addPos({0, 2.5, 15});
     cameraTerrain->speed = 0;
 
+    Console& console = Console::getInstance();
+
+    initImGui(window);
+    SceneRenderer& sceneRenderer = SceneRenderer::getInstance();
+    if (!sceneRenderer.setupFramebuffer(SCR_WIDTH, SCR_HEIGHT, 1.0f)) {
+        console.addLog("Failed to initialize Scene Renderer");
+    }
+    
     lastFrame = glfwGetTime();
 
     do {
@@ -257,21 +270,30 @@ int main()
             startTime = glfwGetTime();
         nbFrames++;
 
-        // Inputs
-        processInput(window);
-
         // Debug
         nbLocalMatrixUpdate = new int(0);
         nbGlobalMatrixUpdate = new int(0);
         nbMVPUpdate = new int(0);
         nbViewProjUpdate = new int(0);
 
+
+        // Inputs
+        processInput(window);
+
+        if (sceneRenderer.isInitialized()) {
+            if(!sceneRenderer.render(deltaTime, paused, world)){
+                console.addLog("Scene Renderer error");
+            }
+
+        }
+
+
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        if (!paused)
-            world.updateSelfAndChildren(deltaTime);
-        world.renderSelfAndChildren();
+
+
+        renderImGui();
 
         // Swap buffers
         glfwSwapBuffers(window);
