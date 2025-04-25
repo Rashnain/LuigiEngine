@@ -4,6 +4,9 @@
 #include <vector>
 #include <iostream>
 
+#include "LuigiEngine/SceneMesh.hpp"
+#include "Mesh.hpp"
+
 // Include GLEW
 #include <GL/glew.h>
 
@@ -20,13 +23,15 @@ using namespace std;
 
 #include "common/shader.hpp"
 
-#include "SceneCamera.cpp"
-#include "SceneMesh.cpp"
-#include "SceneMeshPhong.cpp"
-#include "SceneObject.cpp"
-#include "Transform.cpp"
-#include "Planet.cpp"
-#include "PlanetPhong.cpp"
+
+#include "ECS.h"
+#include "RenderSystem.hpp"
+#include "SceneCamera.hpp"
+#include "Transform.hpp"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "external/stb_image.h"
+
 #include "ImGui.hpp"
 #include "ImGuiConsole.hpp"
 #include "ImGuiHelper.hpp"
@@ -39,10 +44,10 @@ constexpr int SCR_WIDTH = 1024;
 constexpr int SCR_HEIGHT = 768;
 
 // cameras
-SceneCamera* cameraWorldSide;
+/* SceneCamera* cameraWorldSide;
 SceneCamera* cameraWorldUp;
 SceneCamera* cameraTerrain;
-SceneObject* mainCharacter;
+SceneObject* mainCharacter; */
 
 // timing
 double deltaTime; // time between current frame and last frame
@@ -165,90 +170,78 @@ int main()
 
     /****************************************/
 
-    // TODO [TP03] Scene Tree
-    SceneObject world;
+    Registry registry;
+
+    TransformSystem transformSystem;
+    RenderSystem renderSystem = RenderSystem();
+    CameraSystem cameraSystem = CameraSystem();
+     // TODO [TP03] Scene Tree
+
+    //SceneObject world;
 
     // TODO [TP01] Camera - (Model) (View) Projection
-    // Projection matrix : 45 Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
-    mat4 pers = perspective(radians(45.0f), 1.0f * SCR_WIDTH / SCR_HEIGHT, 0.1f, 1000.0f);
-    cameraWorldSide = new SceneCamera(pers);
-    cameraWorldUp = new SceneCamera(pers);
-    cameraTerrain = new SceneCamera(pers);
-
+    
     Mesh* sphereLOD1 = new Mesh("models/sphereLOD1.obj");
     Mesh* sphereLOD2 = new Mesh("models/sphereLOD2.obj");
+
     Mesh* suzanneLOD1 = new Mesh("models/suzanneLOD1.obj");
     Mesh* suzanneLOD2 = new Mesh("models/suzanneLOD2.obj");
-    Mesh* suzanneLOD3 = new Mesh("models/suzanneLOD3.obj");
+
 
     GLuint simpleShaders = LoadShaders("shaders/vertex.glsl", "shaders/fragment.glsl");
     GLuint phongShaders = LoadShaders("shaders/vertex_phong.glsl", "shaders/fragment_phong.glsl");
     GLuint terrainShaders = LoadShaders("shaders/vertex_terrain.glsl", "shaders/fragment_terrain.glsl");
 
+    /* quand on cree une mesh attache automatiquement un TextureComponent
+    TextureComponent textureComponent;
+    textureComponent.texFiles.push_back("sun.jpg");
+    textureComponent.texUniforms.push_back("tex"); */
+
     constexpr double day = 2*M_PI;
 
-    Planet sun({{0, sphereLOD1}, {10, sphereLOD2}}, {"sun.jpg"}, {"tex"}, simpleShaders);
-    PlanetPhong mercury({{0, sphereLOD1}, {10, sphereLOD2}}, "mercury.jpg", "tex", // rayon 2 439 km - révolution 88 j - rotation 58 j - distance ~0.39 ua
-        phongShaders, day/58, radians(0.04f), 6 * 0.39, day/8.8, radians(7.0f));
-    PlanetPhong venus({{0, sphereLOD1}, {10, sphereLOD2}}, "venus.jpg", // rayon 6 051 km - révolution 224 j - rotation −243 j - distance ~0,723 ua
-        "tex", phongShaders, -day/243, radians(177.36f), 6 * 0.723, day/22.4, radians(3.39f));
-    PlanetPhong earth({{0, sphereLOD1}, {10, sphereLOD2}}, "earth.jpg", // rayon 6 378 km - révolution 365 j - rotation 1 j - distance 1 ua
-        "tex", phongShaders, day, radians(23.44f), 6, day/36.5);
-    PlanetPhong moon({{0, sphereLOD1}, {10, sphereLOD2}}, "moon.jpg", // rayon 1 737 km - révolution 27 j - rotation 27 j - distance 0,00257 ua
-        "tex", phongShaders, day/27, radians(6.68f), 0.00257 * 750, day/2.7, radians(5.14f));
+    //on pourrait peut creer un ShaderComponent pour savoir quelle shader utilise et stocke les uniforms 
+    MeshComponent sphereMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, simpleShaders, {"sun.jpg"}, {"tex"}); 
 
-    Mesh terrainMeshLOD1;
-    createFlatTerrain({128, 128}, terrainSize, terrainMeshLOD1.vertices, terrainMeshLOD1.triangles, terrainMeshLOD1.uvs);
-    Mesh terrainMeshLOD2;
-    createFlatTerrain({64, 64}, terrainSize, terrainMeshLOD2.vertices, terrainMeshLOD2.triangles, terrainMeshLOD2.uvs);
-    Mesh terrainMeshLOD3;
-    createFlatTerrain({32, 32}, terrainSize, terrainMeshLOD3.vertices, terrainMeshLOD3.triangles, terrainMeshLOD3.uvs);
-    Mesh terrainMeshLOD4;
-    createFlatTerrain({16, 16}, terrainSize, terrainMeshLOD4.vertices, terrainMeshLOD4.triangles, terrainMeshLOD4.uvs);
-    Mesh terrainMeshLOD5;
-    createFlatTerrain({8, 8}, terrainSize, terrainMeshLOD5.vertices, terrainMeshLOD5.triangles, terrainMeshLOD5.uvs);
-    Mesh terrainMeshLOD6;
-    createFlatTerrain({4, 4}, terrainSize, terrainMeshLOD6.vertices, terrainMeshLOD6.triangles, terrainMeshLOD6.uvs);
-    const string terrainHeightmap = "Heightmap_Mountain.png";
-    int heightmapNrChannels;
-    heightmapData = stbi_load(("textures/" + terrainHeightmap).c_str(), &heightmapWidth, &heightmapHeight, &heightmapNrChannels, 0);
-    SceneMesh terrain({{0, &terrainMeshLOD1}, {10, &terrainMeshLOD2}, {15, &terrainMeshLOD3},
-        {20, &terrainMeshLOD4}, {25, &terrainMeshLOD5}, {30, &terrainMeshLOD6}},
-        {terrainHeightmap, "snowrock.png", "rock.png", "grass.png"},
-        {"heightmap_tex", "snowrock_tex", "rock_tex", "grass_tex"}, terrainShaders);
-    SceneMeshPhong* suzanne = new SceneMeshPhong({{0, suzanneLOD1}, {1.25, suzanneLOD2}, {2.5, suzanneLOD3}},
-        {"suzanne.png"}, {"tex"}, phongShaders, Material(0.5, 1, 0, 00));
+    MeshComponent earthMeshComponent = MeshComponent({{0, sphereLOD1}, {35, suzanneLOD1}}, simpleShaders, {"earth.jpg"}, {"tex"});
 
-    world.addChild(cameraWorldSide);
-    world.addChild(cameraWorldUp);
-    world.addChild(&sun);
-    earth.addChild(&terrain);
-    terrain.addChild(suzanne);
-    sun.addChild(&mercury);
-    sun.addChild(&venus);
-    sun.addChild(&earth);
-    suzanne->addChild(cameraTerrain);
-    earth.addChild(&moon);
-    SceneObject::setMainCamera(cameraTerrain);
-    mainCharacter = suzanne;
+    MeshComponent moonMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, simpleShaders,{"moon.jpg"}, {"tex"} );
 
-    sun.transform.setScale(vec3(2));
-    mercury.transform.setScale(vec3(2439 * 0.5 / 6378));
-    venus.transform.setScale(vec3(6051 * 0.5 / 6378));
-    earth.transform.setScale(vec3(0.5));
-    moon.transform.setScale(vec3(1737.0 / 6378));
-    terrain.transform.setScale(vec3(2));
-    terrain.transform.setPos(vec3(-1*terrainSize.x, 1, -1*terrainSize.x));
-    suzanne->transform.setPos({0.5, 0.25, 0.5});
-    suzanne->transform.setScale(vec3(0.1f));
-    cameraWorldSide->transform.addPos({0, 0, 35});
-    cameraWorldSide->speed = 5;
-    cameraWorldUp->transform.addPos({0, 50, 0});
-    cameraWorldUp->speed = 5;
-    cameraWorldUp->transform.addEulerRot({-90, 0, 0});
-    cameraTerrain->transform.addPos({0, 2.5, 15});
-    cameraTerrain->speed = 0;
 
+    Entity cameraWorldSideEntity = registry.create();
+
+    Entity earthEntity = registry.create();
+    Entity moonEntity = registry.create();
+    Entity sunEntity = registry.create();
+
+    registry.emplace<MeshComponent>(sunEntity,sphereMeshComponent);
+    registry.emplace<MeshComponent>(earthEntity, earthMeshComponent);
+    registry.emplace<MeshComponent>(moonEntity, moonMeshComponent);
+    
+    // Projection matrix : 45 Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
+    mat4 pers = perspective(radians(45.0f), 1.0f * SCR_WIDTH / SCR_HEIGHT, 0.1f, 1000.0f);
+    
+    // on attache les composants aux entite 
+    registry.emplace<Transform>(cameraWorldSideEntity).addPos({0, 0, 35});
+    registry.emplace<CameraComponent>(cameraWorldSideEntity, pers).speed = 5.0f;
+
+    renderSystem.activeCamera = cameraWorldSideEntity;
+
+
+    registry.emplace<Transform>(earthEntity).setPos({5, 0, 0});
+    registry.emplace<Transform>(moonEntity).setPos({5, 0, 0});
+    registry.emplace<Transform>(sunEntity).setPos({0,0,0});
+
+    registry.emplace<Hierarchy>(earthEntity, sunEntity, vector<Entity>{moonEntity});
+
+
+    registry.get<Transform>(sunEntity).setScale(vec3(2));
+
+
+
+    registry.get<Transform>(earthEntity).setScale(vec3(0.5));
+    registry.get<Transform>(moonEntity).setScale(vec3(1737.0 / 6378));
+
+ 
     Console& console = Console::getInstance();
 
     initImGui(window);
@@ -256,7 +249,8 @@ int main()
     if (!sceneRenderer.setupFramebuffer(SCR_WIDTH, SCR_HEIGHT, 1.0f)) {
         console.addLog("Failed to initialize Scene Renderer");
     }
-    
+
+ 
     lastFrame = glfwGetTime();
 
     do {
@@ -305,7 +299,8 @@ int main()
            glfwWindowShouldClose(window) == 0 );
 
     // Cleanup VBO and shader
-    world.clearSelfAndChildren();
+
+    //registry.clear();
     glDeleteVertexArrays(1, &VertexArrayID);
 
     // Close OpenGL window and terminate GLFW
@@ -321,7 +316,7 @@ void processInput(GLFWwindow *window)
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    // TODO [TP02] Camera - Déplacements
+   /*  // TODO [TP02] Camera - Déplacements
     SceneCamera* mainCamera = SceneObject::getMainCamera();
     if (mainCamera) {
         float distance = mainCamera->speed;
@@ -347,17 +342,17 @@ void processInput(GLFWwindow *window)
         // TODO [Camera] ajouter bind changement de caméra perspective à orthonormal et inversement
         // mat4 orth = ...
         // mainCamera.setProjection(orth);
-    }
+    } */
 
-    if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
+    /* if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
         SceneObject::setMainCamera(cameraWorldSide);
     if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS)
         SceneObject::setMainCamera(cameraWorldUp);
     if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
-        SceneObject::setMainCamera(cameraTerrain);
+        SceneObject::setMainCamera(cameraTerrain); */
 
     // TODO [TP04] Déplacement personnage
-    if (mainCharacter && mainCamera == cameraTerrain) {
+    /* if (mainCharacter && mainCamera == cameraTerrain) {
         float distance = 0.33f * static_cast<float>(deltaTime);
 
         if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
@@ -385,7 +380,7 @@ void processInput(GLFWwindow *window)
         } else
             basePos.y = 1;
         mainCharacter->transform.setPos(basePos + movement);
-    }
+    } */
 
     // Debug
     if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS && timeSinceKeyPressed >= 1.0f) {
