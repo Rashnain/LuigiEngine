@@ -126,7 +126,7 @@ bool SceneRenderer::setupFramebuffer(float width, float height, float scale) {
     }
 }
 
-bool SceneRenderer::render(float deltaTime, bool paused, SceneObject world) {
+bool SceneRenderer::render(float deltaTime, bool paused, RenderSystem & renderSystem,Registry & registry) {
     try {
         if (initialized == false)
             return false;
@@ -137,9 +137,7 @@ bool SceneRenderer::render(float deltaTime, bool paused, SceneObject world) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-        if (!paused)
-            world.updateSelfAndChildren(deltaTime);
-        world.renderSelfAndChildren();
+        renderSystem.render(registry);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         return true;

@@ -264,28 +264,46 @@ int main()
             startTime = glfwGetTime();
         nbFrames++;
 
+        // Inputs
+        processInput(window);
+
         // Debug
         nbLocalMatrixUpdate = new int(0);
         nbGlobalMatrixUpdate = new int(0);
         nbMVPUpdate = new int(0);
         nbViewProjUpdate = new int(0);
 
+        // Clear the screen
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Inputs
-        processInput(window);
+        vec3 rotationAngles = vec3(0.0f, currentFrame, 0.0f); 
+        quat rotationQuat = quat(rotationAngles);
+        registry.get<Transform>(sunEntity).setRot(rotationQuat);
+
+        rotationAngles = vec3(0.0f, currentFrame * 8, 0.0f); 
+        rotationQuat = quat(rotationAngles);
+        registry.get<Transform>(earthEntity).setRot(rotationQuat);
+
+        rotationAngles = vec3(0.0f, currentFrame * 5, 0.0f); 
+        rotationQuat = quat(rotationAngles);
+        registry.get<Transform>(moonEntity).setRot(rotationQuat);
+
+
+
+        transformSystem.update(registry);
+        cameraSystem.update(registry);
+        cameraSystem.computeViewProj(registry);
+
 
         if (sceneRenderer.isInitialized()) {
-            if(!sceneRenderer.render(deltaTime, paused, world)){
+            if(!sceneRenderer.render(deltaTime, paused, renderSystem, registry)){
                 console.addLog("Scene Renderer error");
             }
 
         }
 
-
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-
 
         renderImGui();
 

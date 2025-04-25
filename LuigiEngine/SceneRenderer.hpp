@@ -4,6 +4,7 @@
 #include <common/shader.hpp>
 #include "ImGuiConsole.hpp"
 #include "SceneObject.hpp"
+#include "RenderSystem.hpp"
 
 #include <exception>
 #include <unistd.h>
@@ -41,7 +42,7 @@ public:
 
     void resizeFramebuffer(int width, int height, float scale);
     bool setupFramebuffer(float width, float height, float scale);
-    bool render(float deltaTime, bool paused, SceneObject world);
+    bool render(float deltaTime, bool paused, RenderSystem & renderSystem, Registry & registry);
     void cleanup();
 
 };

@@ -133,7 +133,6 @@ void renderImGui() {
     
     if (ImGui::Begin("Vue Scène")) {
         ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-        ImGui::SameLine();
         //ImGui::Text("Game Objects Rendered : %d", SceneGraph::getInstance().getNbRenderedGameObjects());
 
         SceneRenderer & sceneRenderer = SceneRenderer::getInstance();
