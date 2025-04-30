@@ -5,35 +5,20 @@ in vec2 TexCoords;
 in vec3 WorldPos;
 in vec3 Normal;
 
-// material parameters
-uniform vec3  albedo;
-uniform float metallic;
-uniform float roughness;
-uniform float ao;
+// material
+uniform sampler2D albedoMap;
+//uniform sampler2D normalMap;
+uniform sampler2D metallicMap;
+uniform sampler2D roughnessMap;
+uniform sampler2D aoMap;
 
 // lights
-uniform vec3 lightPositions[4];
-uniform vec3 lightColors[4];
+uniform vec3 lightPositions[2];
+uniform vec3 lightColors[2];
 
 uniform vec3 camPos;
 
 const float PI = 3.14159265359;
-
-// Input data (from vertex shader)
-in vec2 tex_coord;
-in vec3 vtx_normal;
-in vec3 vtx_light;
-in vec3 vtx_camera;
-
-// Ouput data
-out vec3 color;
-
-uniform sampler2D tex;
-uniform vec3 light_color;
-uniform float k_ambiante;
-uniform float k_diffuse;
-uniform float k_specular;
-uniform int alpha;
 
 vec3 fresnelSchlick(float cosTheta, vec3 F0)
 {
@@ -75,6 +60,12 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 }
 
 void main() {
+    vec3 albedo     = pow(texture(albedoMap, TexCoords).rgb, vec3(2.2));
+//    vec3 normal     = getNormalFromNormalMap();
+    float metallic  = texture(metallicMap, TexCoords).r;
+    float roughness = texture(roughnessMap, TexCoords).r;
+    float ao        = texture(aoMap, TexCoords).r;
+
     vec3 N = normalize(Normal);
     vec3 V = normalize(camPos - WorldPos);
 
@@ -83,7 +74,7 @@ void main() {
 
     // reflectance equation
     vec3 Lo = vec3(0.0);
-    for(int i = 0; i < 4; ++i)
+    for(int i = 0; i < 2; ++i)
     {
         // calculate per-light radiance
         vec3 L = normalize(lightPositions[i] - WorldPos);
@@ -116,5 +107,5 @@ void main() {
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0/2.2));
 
-    FragColor = vec4(color, 1.0);
+    FragColor = vec4(color, 0.0);
 }
