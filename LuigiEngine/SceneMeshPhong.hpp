@@ -2,7 +2,7 @@
 #define SCENEMESHPHONG_H
 
 #include "SceneMesh.hpp"
-#include "Material.cpp"
+#include "Material.h"
 
 class SceneMeshPhong : public SceneMesh
 {

@@ -22,6 +22,7 @@ using namespace std;
 #include "SceneCamera.cpp"
 #include "SceneMesh.cpp"
 #include "SceneMeshPhong.cpp"
+#include "SceneMeshPBR.cpp"
 #include "SceneObject.cpp"
 #include "Transform.cpp"
 #include "Planet.cpp"
@@ -215,10 +216,10 @@ int main()
     SceneMeshPhong* suzanne = new SceneMeshPhong({{0, suzanneLOD1}, {1.25, suzanneLOD2}, {2.5, suzanneLOD3}},
         {"suzanne.png"}, {"tex"}, phongShaders, Material(0.5, 1, 0, 0));
 
-    SceneMeshPhong sphere_pbr_brick({{0, sphereLOD1}, {10, sphereLOD2}}, {"materials/brick/albedo.png"}, {"tex"}, pbrShaders, Material(0.5, 1, 0, 0));
-    SceneMeshPhong sphere_pbr_metal({{0, sphereLOD1}, {10, sphereLOD2}}, {"materials/metal/albedo.png"}, {"tex"}, pbrShaders, Material(0.5, 1, 0, 0));
-    SceneMeshPhong sphere_pbr_wood({{0, sphereLOD1}, {10, sphereLOD2}}, {"materials/wood/albedo.png"}, {"tex"}, pbrShaders, Material(0.5, 1, 0, 0));
-    SceneMeshPhong sphere_pbr_rust({{0, sphereLOD1}, {10, sphereLOD2}}, {"materials/rust/albedo.png"}, {"tex"}, pbrShaders, Material(0.5, 1, 0, 0));
+    SceneMeshPBR sphere_pbr_brick({{0, sphereLOD1}, {10, sphereLOD2}}, "brick", pbrShaders, Material(0.5, 1, 0, 0));
+    SceneMeshPBR sphere_pbr_metal({{0, sphereLOD1}, {10, sphereLOD2}}, "metal", pbrShaders, Material(0.5, 1, 0, 0));
+    SceneMeshPBR sphere_pbr_wood({{0, sphereLOD1}, {10, sphereLOD2}}, "wood", pbrShaders, Material(0.5, 1, 0, 0));
+    SceneMeshPBR sphere_pbr_rust({{0, sphereLOD1}, {10, sphereLOD2}}, "rust", pbrShaders, Material(0.5, 1, 0, 0));
 
     world.addChild(cameraWorldSide);
     world.addChild(cameraWorldUp);

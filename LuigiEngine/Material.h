@@ -1,3 +1,6 @@
+#ifndef MATERIAL_H
+#define MATERIAL_H
+
 struct Material {
 	float ambiant;
 	float diffuse;
@@ -14,3 +17,5 @@ struct Material {
 		this->alpha = alpha;
 	}
 };
+
+#endif //MATERIAL_H
