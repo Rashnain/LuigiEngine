@@ -216,10 +216,11 @@ int main()
     SceneMeshPhong* suzanne = new SceneMeshPhong({{0, suzanneLOD1}, {1.25, suzanneLOD2}, {2.5, suzanneLOD3}},
         {"suzanne.png"}, {"tex"}, phongShaders, Material(0.5, 1, 0, 0));
 
-    SceneMeshPBR sphere_pbr_brick({{0, sphereLOD1}, {10, sphereLOD2}}, "brick", pbrShaders, Material(0.5, 1, 0, 0));
-    SceneMeshPBR sphere_pbr_metal({{0, sphereLOD1}, {10, sphereLOD2}}, "metal", pbrShaders, Material(0.5, 1, 0, 0));
-    SceneMeshPBR sphere_pbr_wood({{0, sphereLOD1}, {10, sphereLOD2}}, "wood", pbrShaders, Material(0.5, 1, 0, 0));
-    SceneMeshPBR sphere_pbr_rust({{0, sphereLOD1}, {10, sphereLOD2}}, "rust", pbrShaders, Material(0.5, 1, 0, 0));
+    SceneMeshPBR sphere_pbr_brick({{0, sphereLOD1}, {10, sphereLOD2}}, "brick", pbrShaders);
+    SceneMeshPBR sphere_pbr_metal({{0, sphereLOD1}, {10, sphereLOD2}}, "metal", pbrShaders);
+    SceneMeshPBR sphere_pbr_wood({{0, sphereLOD1}, {10, sphereLOD2}}, "wood", pbrShaders);
+    SceneMeshPBR sphere_pbr_rust({{0, sphereLOD1}, {10, sphereLOD2}}, "rust", pbrShaders);
+    SceneMeshPBR sphere_pbr_white({{0, sphereLOD1}, {10, sphereLOD2}}, "whiteball", pbrShaders);
 
     world.addChild(cameraWorldSide);
     world.addChild(cameraWorldUp);
@@ -230,6 +231,7 @@ int main()
     terrain.addChild(&sphere_pbr_metal);
     terrain.addChild(&sphere_pbr_wood);
     terrain.addChild(&sphere_pbr_rust);
+    terrain.addChild(&sphere_pbr_white);
     sun.addChild(&mercury);
     sun.addChild(&venus);
     sun.addChild(&earth);
@@ -247,14 +249,16 @@ int main()
     terrain.transform.setPos(vec3(-1*terrainSize.x, 1, -1*terrainSize.x));
     suzanne->transform.setPos({0.5, 0.25, 0.5});
     suzanne->transform.setScale(vec3(0.1f));
-    sphere_pbr_brick.transform.setPos({0.15, 1, 1});
+    sphere_pbr_brick.transform.setPos({0.0, 1, 1});
     sphere_pbr_brick.transform.setScale(vec3(0.1f));
-    sphere_pbr_metal.transform.setPos({0.4, 1, 1});
+    sphere_pbr_metal.transform.setPos({0.25, 1, 1});
     sphere_pbr_metal.transform.setScale(vec3(0.1f));
-    sphere_pbr_wood.transform.setPos({0.65, 1, 1});
+    sphere_pbr_wood.transform.setPos({0.50, 1, 1});
     sphere_pbr_wood.transform.setScale(vec3(0.1f));
-    sphere_pbr_rust.transform.setPos({0.9, 1, 1});
+    sphere_pbr_rust.transform.setPos({0.75, 1, 1});
     sphere_pbr_rust.transform.setScale(vec3(0.1f));
+    sphere_pbr_white.transform.setPos({1.0, 1, 1});
+    sphere_pbr_white.transform.setScale(vec3(0.1f));
     cameraWorldSide->transform.addPos({0, 0, 35});
     cameraWorldSide->speed = 5;
     cameraWorldUp->transform.addPos({0, 50, 0});

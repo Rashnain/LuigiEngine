@@ -14,10 +14,8 @@ out vec3 Normal;
 
 void main() {
     TexCoords = uv;
-    WorldPos = vec3(mvp * vec4(position, 1));
     WorldPos = vec3(model * vec4(position, 1));
     Normal = vec3(rotation * normal);
-//    Normal = normal;
 
     gl_Position = vec4(mvp * vec4(position, 1));
 }

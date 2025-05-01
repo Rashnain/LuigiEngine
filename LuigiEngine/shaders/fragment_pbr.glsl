@@ -4,7 +4,6 @@ out vec4 FragColor;
 in vec2 TexCoords;
 in vec3 WorldPos;
 in vec3 Normal;
-//uniform mat3 rotation;
 
 // material
 uniform sampler2D albedoMap;
@@ -14,8 +13,8 @@ uniform sampler2D roughnessMap;
 uniform sampler2D aoMap;
 
 // lights
-uniform vec3 lightPositions[4];
-uniform vec3 lightColors[4];
+uniform vec3 lightPositions[3];
+uniform vec3 lightColors[3];
 
 uniform vec3 camPos;
 
@@ -63,13 +62,12 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 void main() {
     vec3 albedo     = pow(texture(albedoMap, TexCoords).rgb, vec3(2.2));
     vec3 normal     = Normal;
-//    vec3 Normal     = normal;
-//    vec3 normal     = rotation * texture(normalMap, TexCoords).rgb;
+//    vec3 normal     = getNormalFromNormalMap();
     float metallic  = texture(metallicMap, TexCoords).r;
     float roughness = texture(roughnessMap, TexCoords).r;
     float ao        = texture(aoMap, TexCoords).r;
 
-    vec3 N = normalize(Normal);
+    vec3 N = normalize(normal);
     vec3 V = normalize(camPos - WorldPos);
 
     vec3 F0 = vec3(0.04);
@@ -77,7 +75,7 @@ void main() {
 
     // reflectance equation
     vec3 Lo = vec3(0.0);
-    for(int i = 0; i < 4; ++i)
+    for(int i = 0; i < 3; ++i)
     {
         // calculate per-light radiance
         vec3 L = normalize(lightPositions[i] - WorldPos);
