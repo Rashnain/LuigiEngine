@@ -17,6 +17,7 @@ public:
     virtual ~IComponentStorage() = default;
     virtual const bool has(Entity entity) = 0;
     virtual void remove(Entity entity) = 0;
+    virtual void clear() = 0;
 };
 
 template<typename Component> //rend la classe générique et utilisable avec n'importe quelle struct Component
@@ -72,6 +73,12 @@ class ComponentStorage : public IComponentStorage{ //stocke les composants pour 
         components.pop_back();
         
         sparse[entity] = INVALID;
+    }
+
+    void clear(){
+        fill(sparse.begin(), sparse.end(), INVALID);
+        components.clear();
+        entities.clear();
     }
 
 };
@@ -250,7 +257,7 @@ public:
 
     void clear() {
         for (IComponentStorage* storage : componentStorages) {
-            delete storage;
+            storage->clear();
         }
         componentStorages.clear();
         FreeIDs.clear();

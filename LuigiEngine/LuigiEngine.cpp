@@ -138,7 +138,13 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
     lastMousePos = currentMousePos;
 }
 
+
 GLuint simpleShaders;
+
+//for testing
+Mesh* testMesh;
+MeshComponent testMeshComponent;
+OBBCollider* testOBBCollider;
 
 int main()
 {
@@ -247,20 +253,26 @@ int main()
 
     OBBCollider* cubeCollider = new OBBCollider(vec3(1.0f, 1.0f, 1.0f));
 
-    OBBCollider* terrainCollider = new OBBCollider(vec3(10.0f, 0.5f, 10.0f));
+    SphereCollider* sphereCollider = new SphereCollider(1.0f);
+    
+    PlaneCollider* planeCollider = new PlaneCollider(vec3(0.0f,1.0f,0.0f));
+
+    
     
 
     //MeshComponent setup
     MeshComponent terrainMeshComponent = MeshComponent({{0,cubeMesh}}, simpleShaders, {"moon.jpg"}, {"tex"});
 
     MeshComponent cubeMeshComponent = MeshComponent({{0,cubeMesh}}, simpleShaders, {"sun.jpg"}, {"tex"});
+
+    MeshComponent sphereMeshComponent = MeshComponent({{0,sphereLOD1}}, simpleShaders, {"mercury.jpg"}, {"tex"});
     
     //entities create and attach comps
 
     Entity terrainEntity = registry.create(); 
 
     registry.emplace<Transform>(terrainEntity).setPos(vec3(0,-5,0));
-    registry.get<Transform>(terrainEntity).setScale(vec3(10,0.5,10));
+    registry.get<Transform>(terrainEntity).setScale(vec3(40,0.5,40));
     registry.emplace<MeshComponent>(terrainEntity, terrainMeshComponent);
     registry.emplace<Hierarchy>(terrainEntity, vector<Entity>{}).name = "Terrain";
     auto& body = registry.emplace<RigidBodyComponent>(terrainEntity);
@@ -269,14 +281,29 @@ int main()
     body.colliders.push_back(cubeCollider);
 
 
+    
+
+    Entity sphere1Entity = registry.create();
+    registry.emplace<Transform>(sphere1Entity).setPos(vec3(-5,0,0));
+    registry.emplace<MeshComponent>(sphere1Entity, sphereMeshComponent);
+    registry.emplace<Hierarchy>(sphere1Entity, vector<Entity>{}).name = "Sphere1";
+    registry.emplace<RigidBodyComponent>(sphere1Entity).mesh = sphereLOD1;
+    registry.get<RigidBodyComponent>(sphere1Entity).colliders.push_back(sphereCollider);
+    registry.get<RigidBodyComponent>(sphere1Entity).linearVelocity = vec3(3,0,0);
+
     Entity cube1Entity = registry.create();
-    registry.emplace<Transform>(cube1Entity).setPos(vec3(0,0,0));
+    registry.emplace<Transform>(cube1Entity).setPos(vec3(5,0,0));
     registry.emplace<MeshComponent>(cube1Entity, cubeMeshComponent);
     registry.emplace<Hierarchy>(cube1Entity, vector<Entity>{}).name = "Cube1";
     registry.emplace<RigidBodyComponent>(cube1Entity).mesh = cubeMesh;
     registry.get<RigidBodyComponent>(cube1Entity).colliders.push_back(cubeCollider);
 
     
+
+    //testing
+    testMesh = new Mesh("models/cube.obj");
+    testMeshComponent = MeshComponent({{0,testMesh}}, simpleShaders, {"sun.jpg"}, {"tex"});
+    testOBBCollider = new OBBCollider(vec3(1.0f, 1.0f, 1.0f));
 
     //main loop
  
@@ -353,7 +380,29 @@ int main()
 
     // Cleanup VBO and shader
 
-    //registry.clear();
+    delete optimizeMVP;
+    delete nbLocalMatrixUpdate;
+    delete nbGlobalMatrixUpdate;
+    delete nbMVPUpdate;
+    delete nbViewProjUpdate;
+
+    delete sphereLOD1;
+    delete sphereLOD2;
+    delete suzanneLOD1;
+    delete suzanneLOD2;
+    delete terrainMesh;
+    delete cubeMesh;
+    delete testMesh;
+
+    delete cubeCollider;
+
+    delete testOBBCollider;
+
+    if (heightmapData) {
+        stbi_image_free(heightmapData);
+    }
+
+    registry.clear();
     glDeleteVertexArrays(1, &VertexArrayID);
 
     // Close OpenGL window and terminate GLFW
@@ -433,21 +482,35 @@ void processInput(GLFWwindow *window, float deltatime, Registry & registry, Rend
         timeSinceKeyPressed = 0.0;
     }
 
-    if(glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS && timeSinceKeyPressed >= 0.5f){
+    if(glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS && timeSinceKeyPressed >= 0.1f){
 
-        float randomX = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 20.0f - 10.0f; 
-        float randomY = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 20.0f - 10.0f;
-        string randomName = "Cube" + to_string(rand() % 1000);
+        static std::mt19937 rng(std::random_device{}());
+        static std::uniform_real_distribution<float> distPos(-40.0f, 40.0f);
+        static std::uniform_real_distribution<float> distAngle(0.0f, glm::two_pi<float>());
+        static std::uniform_int_distribution<int> distName(0, 999);
 
-        Mesh* cubeMesh = new Mesh("models/cube.obj");
-        MeshComponent cubeMeshComponent = MeshComponent({{0,cubeMesh}}, simpleShaders, {"sun.jpg"}, {"tex"});
-        OBBCollider* cubeCollider = new OBBCollider(vec3(1.0f, 1.0f, 1.0f));
-        Entity cube1Entity = registry.create();
-        registry.emplace<Transform>(cube1Entity).setPos(vec3(randomX, 0, randomY));
-        registry.emplace<MeshComponent>(cube1Entity, cubeMeshComponent);
-        registry.emplace<Hierarchy>(cube1Entity, vector<Entity>{}).name = randomName;
-        registry.emplace<RigidBodyComponent>(cube1Entity).mesh = cubeMesh;
-        registry.get<RigidBodyComponent>(cube1Entity).colliders.push_back(cubeCollider);
+        for (int i = 0; i < 1; ++i) {
+            float randomX = distPos(rng);
+            float randomY = distPos(rng);
+            std::string randomName = "Cube" + std::to_string(distName(rng));
+
+            Entity cube = registry.create();
+
+            Transform& transform = registry.emplace<Transform>(cube);
+            transform.setPos(glm::vec3(randomX, 0.0f, randomY));
+
+            glm::quat rotation = glm::angleAxis(distAngle(rng), glm::vec3(1, 0, 0)) *
+                                glm::angleAxis(distAngle(rng), glm::vec3(0, 1, 0)) *
+                                glm::angleAxis(distAngle(rng), glm::vec3(0, 0, 1));
+            transform.setRot(glm::toMat4(rotation));
+
+            registry.emplace<MeshComponent>(cube, testMeshComponent);
+            registry.emplace<Hierarchy>(cube, std::vector<Entity>{}).name = randomName;
+
+            auto& rigidBody = registry.emplace<RigidBodyComponent>(cube);
+            rigidBody.mesh = testMesh;
+            rigidBody.colliders.push_back(testOBBCollider);
+        }
 
         timeSinceKeyPressed = 0.0;
     }

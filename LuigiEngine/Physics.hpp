@@ -59,6 +59,8 @@ struct RigidBodyComponent {
     float linearDamping = 0.0f;
     float angularDamping = 0.0f;
 
+    float restitution = 1.0f;
+
     RigidBodyComponent(){
         mass = 1.0f;
         inverseMass = 1.0f;
@@ -88,7 +90,7 @@ class PhysicsSystem  {
     std::vector<std::pair<Entity, Entity>> collisionPairs;
     std::vector<CollisionInfo> collisionList;
 
-    vec3 gravity = vec3(0,-9.8, 0);
+    vec3 gravity = vec3(0,-3.0, 0);
 
     void recomputeAABB(Registry& registry);
 

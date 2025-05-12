@@ -32,7 +32,7 @@ struct CollisionInfo{
 enum class ColliderType
 {
     SPHERE,
-    CylinderCollider,
+    CYLINDER,
     AABB,
     OBB,
     PLANE,
@@ -65,7 +65,7 @@ struct CylinderCollider : public Collider {
     vec3 axis = vec3(0.0,1.0,0.0);
 
     CylinderCollider(float r, float h) : radius(r), height(h) {
-        type = ColliderType::CylinderCollider;
+        type = ColliderType::CYLINDER;
     }
 };
 
@@ -105,9 +105,8 @@ struct OBBCollider : public Collider {
 
 struct PlaneCollider : public Collider {
     vec3 normal;
-    float d; 
 
-    PlaneCollider( vec3& normal, float d) : normal(normal), d(d) {
+    PlaneCollider(const vec3& normal) : normal(normal){
         type = ColliderType::PLANE;
     }
 };

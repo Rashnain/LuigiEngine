@@ -98,7 +98,29 @@ void CollisionDetection::collision_obb_obb(const Entity entityA, const Collider&
 }
 
 void CollisionDetection::collision_sphere_sphere(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB, const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {
-    // Empty implementation
+    collisionInfo.isColliding = false;
+
+    const SphereCollider& sphereA = (const SphereCollider&) colliderA;
+    const SphereCollider& sphereB = (const SphereCollider&) colliderB;
+
+    vec3 centerA = transformA.getPos() + sphereA.localCentroid;
+    vec3 centerB = transformB.getPos() + sphereB.localCentroid;
+
+    float radiusA = sphereA.radius * glm::max(glm::max(transformA.getScale().x, transformA.getScale().y), transformA.getScale().z);
+    float radiusB = sphereB.radius * glm::max(glm::max(transformB.getScale().x, transformB.getScale().y), transformB.getScale().z);
+
+    vec3 diff = centerB - centerA;
+    float distSquared = dot(diff, diff);
+    float radiusSum = radiusA + radiusB;
+
+    if (distSquared <= radiusSum * radiusSum) {
+        collisionInfo.isColliding = true;
+        float dist = sqrt(distSquared);
+        collisionInfo.normal = dist > 0.0f ? diff / dist : vec3(1.0f, 0.0f, 0.0f);
+        collisionInfo.penetrationDepth = radiusSum - dist;
+        collisionInfo.collisionPointA = centerA + collisionInfo.normal * radiusA;
+        collisionInfo.collisionPointB = centerB - collisionInfo.normal * radiusB;
+    }
 }
 
 void CollisionDetection::collision_sphere_cylinder(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB, const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {
@@ -110,7 +132,41 @@ void CollisionDetection::collision_sphere_aabb(const Entity entityA, const Colli
 }
 
 void CollisionDetection::collision_sphere_obb(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB, const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {
-    // Empty implementation
+    collisionInfo.isColliding = false;
+
+    const SphereCollider& sphere = (const SphereCollider&) colliderA;
+    const OBBCollider& obb = (const OBBCollider&) colliderB;
+
+    vec3 sphereCenter = transformA.getGlobalModel() * vec4(sphere.localCentroid, 1.0f); 
+    float sphereRadius = sphere.radius * glm::max(glm::max(transformA.getScale().x, transformA.getScale().y), transformA.getScale().z);
+
+    WorldOBB wobb;
+    getWorldOBB(obb, transformB, wobb);
+
+    vec3 dir = sphereCenter - wobb.globalCentroid;
+
+    
+    //on cherche le point sur l'obb le plus proche de la sphere
+    vec3 closestPoint = wobb.globalCentroid;
+
+    for (int i = 0; i < 3; ++i) {
+        float projection = dot(dir, wobb.axes[i]);
+        float clamped = glm::clamp(projection, -wobb.halfSize[i], wobb.halfSize[i]);
+        closestPoint += clamped * wobb.axes[i];
+    }
+
+    vec3 diff = sphereCenter - closestPoint;
+    float distSquared = dot(diff, diff);
+
+    if (distSquared <= sphereRadius * sphereRadius) {
+        float distance = sqrt(distSquared);
+
+        collisionInfo.isColliding = true;
+        collisionInfo.normal = distance > 0.0f ? diff / distance : vec3(1.0f, 0.0f, 0.0f);
+        collisionInfo.penetrationDepth = sphereRadius - distance;
+        collisionInfo.collisionPointA = sphereCenter - collisionInfo.normal * sphereRadius;
+        collisionInfo.collisionPointB = closestPoint;
+    }
 }
 
 void CollisionDetection::collision_sphere_plane(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB, const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {

@@ -96,7 +96,7 @@ target_link_libraries(LuigiEngine
 target_compile_features(LuigiEngine PRIVATE cxx_std_17)
 
 target_compile_options(LuigiEngine PRIVATE
-    -g
+    -O3
 )
 
 

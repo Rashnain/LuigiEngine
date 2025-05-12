@@ -177,28 +177,39 @@ void renderImGui(Registry & registry) {
                 mat4 rotation = transform.getRot();
 
                 ImGui::Text("Position");
-                if (ImGui::SliderFloat3("##Position", &position.x, -10.0f, 10.0f)) {
+                if (ImGui::DragFloat3("##Position", &position.x, 0.1f)) {
                     transform.setPos(position);
                 }
 
                 ImGui::Text("Rotation");
                 vec3 eulerRotation = glm::eulerAngles(glm::quat_cast(rotation));
-                if (ImGui::SliderFloat3("##Rotation", &eulerRotation.x, -glm::pi<float>(), glm::pi<float>())) {
+                if (ImGui::DragFloat3("##Rotation", &eulerRotation.x, 0.1f, -glm::pi<float>(), glm::pi<float>())) {
                     transform.setRot(glm::mat4_cast(glm::quat(eulerRotation)));
                 }
-            }
 
-            if(registry.has<RigidBodyComponent>(selectedEntity)){
-                RigidBodyComponent& rigidBody = registry.get<RigidBodyComponent>(selectedEntity);
-                ImGui::Text("Linear Velocity");
-                ImGui::SliderFloat3("##Linear Velocity", &rigidBody.linearVelocity.x, -10.0f, 10.0f);
-                ImGui::Text("Angular Velocity");
-                ImGui::SliderFloat3("##Angular Velocity", &rigidBody.angularVelocity.x, -10.0f, 10.0f);
+                ImGui::Text("Scale");
+                float scale = transform.getScale().x; 
+                if (ImGui::DragFloat("##Scale", &scale, 0.1f)) {
+                    transform.setScale(vec3(scale));
+                }   
+                }
 
-                ImGui::Text("AABB min: %.2f, %.2f, %.2f", rigidBody.aabbCollider.min.x, rigidBody.aabbCollider.min.y, rigidBody.aabbCollider.min.z);
-                ImGui::Text("AABB max: %.2f, %.2f, %.2f", rigidBody.aabbCollider.max.x, rigidBody.aabbCollider.max.y, rigidBody.aabbCollider.max.z);
+                if (registry.has<RigidBodyComponent>(selectedEntity)) {
+                    RigidBodyComponent& rigidBody = registry.get<RigidBodyComponent>(selectedEntity);
+                    ImGui::Text("Linear Velocity");
+                    ImGui::DragFloat3("##Linear Velocity", &rigidBody.linearVelocity.x, 0.1f);
+                    ImGui::Text("Angular Velocity");
+                    ImGui::DragFloat3("##Angular Velocity", &rigidBody.angularVelocity.x, 0.1f);
+                    ImGui::Text("Mass");
+                    if (ImGui::DragFloat("##Mass", &rigidBody.mass, 0.1f, 0.1f, 1000.0f)) {
+                        rigidBody.mass = std::max(0.1f, rigidBody.mass);
+                        rigidBody.inverseMass = 1.0f / rigidBody.mass;
+                    }
+
+                    ImGui::Text("AABB min: %.2f, %.2f, %.2f", rigidBody.aabbCollider.min.x, rigidBody.aabbCollider.min.y, rigidBody.aabbCollider.min.z);
+                    ImGui::Text("AABB max: %.2f, %.2f, %.2f", rigidBody.aabbCollider.max.x, rigidBody.aabbCollider.max.y, rigidBody.aabbCollider.max.z);
+                }   
             }
-        }
     }
     ImGui::End();
     

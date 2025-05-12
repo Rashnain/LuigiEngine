@@ -59,7 +59,7 @@ void PhysicsSystem::integrate(Registry& registry, float deltaTime){
         vec3 acceleration = rigidBody.forceAccumulator * rigidBody.inverseMass;
         rigidBody.linearVelocity += acceleration * deltaTime;
 
-        rigidBody.linearVelocity = gravity;
+        rigidBody.linearVelocity += gravity * deltaTime;
 
         transform.addPos(rigidBody.linearVelocity * deltaTime);
 
@@ -152,6 +152,31 @@ void PhysicsSystem::collisionResolution(Registry& registry){
         } else if (rigidBodyB.bodyType != PhysicsType::STATIC) {
             transformB.addPos(-correction * 2.0f);
         }
+
+        
+        vec3 relativeVelocity = rigidBodyB.linearVelocity - rigidBodyA.linearVelocity;
+
+        float velocityAlongNormal = glm::dot(relativeVelocity, collision.normal);
+
+        if (velocityAlongNormal < 0) {
+            continue; //les objets s'eloignent 
+        }
+
+        float restitution = std::min(rigidBodyA.restitution, rigidBodyB.restitution);
+
+        float impulseStrength = -(1 + restitution) * velocityAlongNormal;
+        impulseStrength /= rigidBodyA.inverseMass + rigidBodyB.inverseMass;
+
+        vec3 impulse = impulseStrength * collision.normal;
+
+        if (rigidBodyA.bodyType != PhysicsType::STATIC) {
+            rigidBodyA.linearVelocity -= impulse * rigidBodyA.inverseMass;
+        }
+        if (rigidBodyB.bodyType != PhysicsType::STATIC) {
+            rigidBodyB.linearVelocity += impulse * rigidBodyB.inverseMass;
+        }
+
+
 
     }
 
