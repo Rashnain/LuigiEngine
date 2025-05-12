@@ -13,8 +13,13 @@
 
 #include "ImGuiHelper.hpp"
 #include "ImGuiConsole.hpp"
+#include "LuigiEngine/Physics.hpp"
+#include "LuigiEngine/Transform.hpp"
 #include "SceneRenderer.hpp"
 
+#include "ECS.h"
+
+Entity selectedEntity = INVALID;
 
 
 void initImGui(GLFWwindow* window) {
@@ -44,7 +49,7 @@ void initImGui(GLFWwindow* window) {
 
 
 
-void renderImGui() {
+void renderImGui(Registry & registry) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -96,13 +101,13 @@ void renderImGui() {
             ImGuiID dock_left_id, dock_center_id, dock_right_id, dock_bottom_id;
             
             // 1. Diviser horizontalement: gauche (hiérarchie) et reste
-            ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.20f, &dock_left_id, &dock_main_id);
+            ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.10f, &dock_left_id, &dock_main_id);
             
             // 2. Diviser le reste: droite (propriétés) et centre
-            ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.4f, &dock_right_id, &dock_center_id);
+            ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.2f, &dock_right_id, &dock_center_id);
             
             // 3. Diviser le centre: haut (Vue Scène) et bas (Console)
-            ImGui::DockBuilderSplitNode(dock_center_id, ImGuiDir_Down, 0.25f, &dock_bottom_id, &dock_center_id);
+            ImGui::DockBuilderSplitNode(dock_center_id, ImGuiDir_Down, 0.15f, &dock_bottom_id, &dock_center_id);
             
             // Assigner les fenêtres aux zones
             ImGui::DockBuilderDockWindow("Vue Scène", dock_center_id);
@@ -117,12 +122,83 @@ void renderImGui() {
     
     // Utiliser le même modèle pour les autres fenêtres
     if (ImGui::Begin("Hiérarchie")) {
+        auto view = registry.view<Hierarchy>();
+    
+        for (Entity e : view) {
+            Hierarchy& h = registry.get<Hierarchy>(e);
+    
+            if (h.parent != INVALID) continue;
+    
+            //flags pour pouvoir selectionner le node
+            ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+            if (selectedEntity == e)
+                node_flags |= ImGuiTreeNodeFlags_Selected;
+    
+            bool open = ImGui::TreeNodeEx(h.name.c_str(), node_flags);
+            if (ImGui::IsItemClicked()) {
+                selectedEntity = e;
+            }
+    
+            if (open) {
+                for (Entity child : h.children) {
+                    Hierarchy& childHierarchy = registry.get<Hierarchy>(child);
+    
+                    ImGuiTreeNodeFlags child_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+                    if (selectedEntity == child)
+                        child_flags |= ImGuiTreeNodeFlags_Selected;
+    
+                    bool child_open = ImGui::TreeNodeEx(childHierarchy.name.c_str(), child_flags);
+                    if (ImGui::IsItemClicked()) {
+                        selectedEntity = child;
+                    }
+    
+                    if (child_open) {
+                        ImGui::TreePop();
+                    }
+                }
+    
+                ImGui::TreePop();
+            }
+        }
+    
+        
     }
     ImGui::End();
     
+    
     if (ImGui::Begin("Propriétés")) {
         // recup id gameobject 
-        ImGui::Text("Aucun objet sélectionné");
+        if(!selectedEntity){
+            ImGui::Text("Aucun objet sélectionné");
+        }else{
+            if(registry.has<Transform>(selectedEntity)){
+                Transform & transform = registry.get<Transform>(selectedEntity);
+                vec3 position = transform.getPos();
+                mat4 rotation = transform.getRot();
+
+                ImGui::Text("Position");
+                if (ImGui::SliderFloat3("##Position", &position.x, -20.0f, 20.0f)) {
+                    transform.setPos(position);
+                }
+
+                ImGui::Text("Rotation");
+                vec3 eulerRotation = glm::eulerAngles(glm::quat_cast(rotation));
+                if (ImGui::SliderFloat3("##Rotation", &eulerRotation.x, -glm::pi<float>(), glm::pi<float>())) {
+                    transform.setRot(glm::mat4_cast(glm::quat(eulerRotation)));
+                }
+            }
+
+            if(registry.has<RigidBodyComponent>(selectedEntity)){
+                RigidBodyComponent& rigidBody = registry.get<RigidBodyComponent>(selectedEntity);
+                ImGui::Text("Linear Velocity");
+                ImGui::SliderFloat3("##Linear Velocity", &rigidBody.linearVelocity.x, -20.0f, 20.0f);
+                ImGui::Text("Angular Velocity");
+                ImGui::SliderFloat3("##Angular Velocity", &rigidBody.angularVelocity.x, -20.0f, 20.0f);
+
+                ImGui::Text("AABB min: %.2f, %.2f, %.2f", rigidBody.aabbCollider.min.x, rigidBody.aabbCollider.min.y, rigidBody.aabbCollider.min.z);
+                ImGui::Text("AABB max: %.2f, %.2f, %.2f", rigidBody.aabbCollider.max.x, rigidBody.aabbCollider.max.y, rigidBody.aabbCollider.max.z);
+            }
+        }
     }
     ImGui::End();
     

@@ -17,7 +17,7 @@ struct CameraComponent {
 
     bool viewProjChanged = true;
     bool justDefinedMain = true;
-    float speed = 1.0f;
+    float speed = 2.0f;
 
     CameraComponent() = default;
     explicit CameraComponent(const glm::mat4& proj) : projection(proj) {}

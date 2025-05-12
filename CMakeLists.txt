@@ -2,6 +2,9 @@
 cmake_minimum_required (VERSION 3.0)
 project(LuigiEngine)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+
 find_package(OpenGL REQUIRED)
 
 
@@ -66,6 +69,8 @@ add_executable(LuigiEngine
 	LuigiEngine/RenderSystem.cpp
 	LuigiEngine/Mesh.cpp
 	LuigiEngine/SceneCamera.cpp
+	LuigiEngine/Physics.cpp
+	LuigiEngine/PhysicsUtils.cpp
     common/shader.cpp
     common/shader.hpp
     common/controls.cpp

@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <string>
 #include <vector>
 #include <glm/gtx/quaternion.hpp>
 #include "ECS.h"
@@ -36,6 +37,7 @@ public:
 
     bool isUpToDateLocal() { return upToDateLocal; }
     vec3 getPos() { return localPos; }
+    vec3 getPos() const { return localPos; }
     void addPos(const vec3& vec);
     void setPos(vec3 vec);
     vec3 getEulerRot() { return localEulerRot; }
@@ -49,11 +51,22 @@ public:
     mat4 getGlobalModel() { return globalModel; }
     void computeGlobalModelMatrix();
     void computeGlobalModelMatrix(const mat4& parentModel);
+
+    vec3 getRight() const {
+        return vec3(globalModel[0][0], globalModel[1][0], globalModel[2][0]);
+    }
+    vec3 getUp() const {
+        return vec3(globalModel[0][1], globalModel[1][1], globalModel[2][1]);
+    }
+    vec3 getFront() const {
+        return vec3(globalModel[0][2], globalModel[1][2], globalModel[2][2]);
+    }
 };
 
 
 //pour l' heritage des transformations
 struct Hierarchy {
+    std::string name = "default_name";
     Entity parent = INVALID;
     std::vector<Entity> children;
 
@@ -68,6 +81,7 @@ struct Hierarchy {
     }
 
     void onAttach(Registry& registry, Entity entity) {
+        name = "Entity " + std::to_string(entity);
         if (parent != INVALID) {
             if (registry.has<Hierarchy>(parent)) {
                 registry.get<Hierarchy>(parent).children.push_back(entity);

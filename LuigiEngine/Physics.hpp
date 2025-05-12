@@ -15,42 +15,9 @@
 #include "ECS.h"
 #include "glm/detail/type_vec.hpp"
 
+#include "LuigiEngine/PhysicsUtils.hpp"
+
 using namespace glm;
-
-enum class ColliderType
-{
-    SPHERE,
-    AABB,
-    OBB,
-    CONVEX
-};
-
-
-struct Collider {
-    ColliderType type;
-    float mass;
-    mat3 localInertiaTensor;
-    vec3 localCentroid;
-
-    vec3 support(const vec3 & direction) const; //donne un point de support pour l'algo GJK
-
-    virtual ~Collider() = default;
-};
-
-struct SphereCollider : public Collider {
-    float radius;
-};
-
-struct AABBCollider : public Collider {
-    vec3 min;
-    vec3 max;
-};
-
-struct ConvexCollider : public Collider {
-    std::vector<vec3> points;
-    std::vector<ivec2> edges; //aretes par indices
-    std::vector<ivec3> faces; //faces par indices
-};
 
 
 
@@ -74,16 +41,16 @@ struct RigidBodyComponent {
     float mass;
     float inverseMass;
 
-    mat3 localInertiaTensor;
+    mat3 localInertiaTensor; //utile seulement pour la rotation
     mat3 localInverseInertiaTensor;
     mat3 globalInverseInertiaTensor;
 
     vec3 globalCentroid;
     vec3 localCentroid;
 
-    AABBCollider aabbCollider; //chaque objet a une aabb
+    AABBCollider aabbCollider; //chaque objet a une aabb en coordonée globale
 
-    std::vector<std::shared_ptr<Collider>> colliders;
+    std::vector<Collider*> colliders;
 
     PhysicsType bodyType = PhysicsType::DYNAMIC;
     bool isPaused = false;
@@ -104,7 +71,7 @@ struct RigidBodyComponent {
         angularVelocity = glm::vec3(0.0f);
         forceAccumulator = glm::vec3(0.0f);
         torqueAccumulator = glm::vec3(0.0f);
-    }
+    }   
 
     void onAttach(Registry & registry, Entity entity){
         Transform& t = registry.get<Transform>(entity);
@@ -114,23 +81,18 @@ struct RigidBodyComponent {
 
 };
 
-struct CollisionInfo{
-    vec3 point;
-    vec3 normal;
-    float penetrationDepth;
-    Entity entityA;
-    Entity entityB;
-    bool isColliding;
-};
+
 
 class PhysicsSystem  {
 
     std::vector<std::pair<Entity, Entity>> collisionPairs;
     std::vector<CollisionInfo> collisionList;
 
+    vec3 gravity = vec3(0,-9.8, 0);
+
     void recomputeAABB(Registry& registry);
 
-    void applyForces(Registry& registry, float deltaTime);
+    void integrate(Registry& registry, float deltaTime);
 
     void narrowCollisionDetection(Entity entityA, RigidBodyComponent& rigidBodyA, Transform& transformA, Entity entityB, RigidBodyComponent& rigidBodyB, Transform& transformB);
     void broadCollisionDetection(Registry& registry);

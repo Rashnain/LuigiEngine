@@ -4,8 +4,10 @@
 #include <vector>
 #include <iostream>
 
+#include "LuigiEngine/PhysicsUtils.hpp"
 #include "LuigiEngine/SceneMesh.hpp"
 #include "Mesh.hpp"
+#include "glm/detail/type_mat.hpp"
 
 // Include GLEW
 #include <GL/glew.h>
@@ -28,6 +30,7 @@ using namespace std;
 #include "RenderSystem.hpp"
 #include "SceneCamera.hpp"
 #include "Transform.hpp"
+#include "Physics.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "external/stb_image.h"
@@ -37,17 +40,13 @@ using namespace std;
 #include "ImGuiHelper.hpp"
 #include "SceneRenderer.hpp" // #include "SceneCamera.cpp"
 
-void processInput(GLFWwindow *window);
+void processInput(GLFWwindow *window, float deltaTime, Registry & registry, RenderSystem & renderSystem);
 
 // settings
-constexpr int SCR_WIDTH = 1024;
-constexpr int SCR_HEIGHT = 768;
+constexpr int SCR_WIDTH = 1920;
+constexpr int SCR_HEIGHT = 1080;
 
-// cameras
-/* SceneCamera* cameraWorldSide;
-SceneCamera* cameraWorldUp;
-SceneCamera* cameraTerrain;
-SceneObject* mainCharacter; */
+Registry registry;
 
 // timing
 double deltaTime; // time between current frame and last frame
@@ -107,6 +106,38 @@ void createFlatTerrain(ivec2 terrain_resolution, vec2 terrain_size, vector<vec3>
     }
 }
 
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+
+    if (ImGui::GetIO().WantCaptureMouse) { // avec l'interface qu'on a, ce truc est toujours vrai
+        //Console::getInstance().addLog("Imgui has mouse");
+        //return;
+    }else{
+        //Console::getInstance().addLog("opengl has mouse");
+    }
+
+    static glm::vec2 lastMousePos = glm::vec2(0.0f, 0.0f);
+    glm::vec2 currentMousePos(xpos, ypos);
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+        glm::vec2 offset = currentMousePos - lastMousePos;
+
+        CameraComponent& camera = registry.get<CameraComponent>(0); 
+        Transform& cameraTransform = registry.get<Transform>(0);
+
+        offset *= 0.1f;
+        const vec3 VEC_UP = {0.0f, 1.0f, 0.0f};
+        mat4  rotationMatrix = cameraTransform.getRot();
+        vec3 right = vec3(rotationMatrix * vec4(1.0f, 0.0f, 0.0f, 0.0f));
+        glm::quat yaw = glm::angleAxis(glm::radians(-offset.x), VEC_UP);
+        glm::quat pitch = glm::angleAxis(glm::radians(-offset.y), right);
+
+        mat4 quaternionMatrix = glm::mat4_cast(glm::normalize(yaw * pitch));
+        cameraTransform.setRot(quaternionMatrix * rotationMatrix);
+    }
+
+    lastMousePos = currentMousePos;
+}
+
 int main()
 {
     // Initialise GLFW
@@ -154,6 +185,8 @@ int main()
     // Dark blue background
     glClearColor(0.2f, 0.2f, 0.2f, 0.0f);
 
+    glfwSetCursorPosCallback(window, mouse_callback);
+
     // Enable depth test
     glEnable(GL_DEPTH_TEST);
     // Accept fragment if it closer to the camera than the former one
@@ -169,17 +202,29 @@ int main()
     glBindVertexArray(VertexArrayID);
 
     /****************************************/
+    //ECS setup
 
-    Registry registry;
 
     TransformSystem transformSystem;
     RenderSystem renderSystem = RenderSystem();
     CameraSystem cameraSystem = CameraSystem();
-     // TODO [TP03] Scene Tree
+    PhysicsSystem physicsSystem = PhysicsSystem();
 
-    //SceneObject world;
+    //camera setup
+    Entity cameraWorldSideEntity = registry.create();
+    mat4 pers = perspective(radians(45.0f), 1.0f * SCR_WIDTH / SCR_HEIGHT, 0.1f, 1000.0f);
+    registry.emplace<Transform>(cameraWorldSideEntity).addPos({0, 0, 20});
+    registry.emplace<CameraComponent>(cameraWorldSideEntity, pers).speed = 10.0f;
+    renderSystem.activeCamera = cameraWorldSideEntity;
 
-    // TODO [TP01] Camera - (Model) (View) Projection
+    //shaders setup
+
+    GLuint simpleShaders = LoadShaders("shaders/vertex.glsl", "shaders/fragment.glsl");
+    GLuint phongShaders = LoadShaders("shaders/vertex_phong.glsl", "shaders/fragment_phong.glsl");
+    GLuint terrainShaders = LoadShaders("shaders/vertex_terrain.glsl", "shaders/fragment_terrain.glsl");
+
+
+    //Meshes setup
     
     Mesh* sphereLOD1 = new Mesh("models/sphereLOD1.obj");
     Mesh* sphereLOD2 = new Mesh("models/sphereLOD2.obj");
@@ -187,60 +232,52 @@ int main()
     Mesh* suzanneLOD1 = new Mesh("models/suzanneLOD1.obj");
     Mesh* suzanneLOD2 = new Mesh("models/suzanneLOD2.obj");
 
+    Mesh* terrainMesh = new Mesh();
+    createFlatTerrain(glm::vec2(2,2), glm::vec2(20,20), terrainMesh->vertices, terrainMesh->triangles, terrainMesh->uvs);
 
-    GLuint simpleShaders = LoadShaders("shaders/vertex.glsl", "shaders/fragment.glsl");
-    GLuint phongShaders = LoadShaders("shaders/vertex_phong.glsl", "shaders/fragment_phong.glsl");
-    GLuint terrainShaders = LoadShaders("shaders/vertex_terrain.glsl", "shaders/fragment_terrain.glsl");
+    Mesh* cubeMesh = new Mesh("models/cube.obj");
+    //makeCubeMesh(cubeMesh->vertices, cubeMesh->normals, cubeMesh->uvs, cubeMesh->triangles);
 
     /* quand on cree une mesh attache automatiquement un TextureComponent
     TextureComponent textureComponent;
     textureComponent.texFiles.push_back("sun.jpg");
     textureComponent.texUniforms.push_back("tex"); */
 
-    constexpr double day = 2*M_PI;
+    OBBCollider* cubeCollider = new OBBCollider(vec3(0.5f, 0.5f, 0.5f));
 
-    //on pourrait peut creer un ShaderComponent pour savoir quelle shader utilise et stocke les uniforms 
-    MeshComponent sphereMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, simpleShaders, {"sun.jpg"}, {"tex"}); 
-
-    MeshComponent earthMeshComponent = MeshComponent({{0, sphereLOD1}, {35, suzanneLOD1}}, simpleShaders, {"earth.jpg"}, {"tex"});
-
-    MeshComponent moonMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, simpleShaders,{"moon.jpg"}, {"tex"} );
-
-
-    Entity cameraWorldSideEntity = registry.create();
-
-    Entity earthEntity = registry.create();
-    Entity moonEntity = registry.create();
-    Entity sunEntity = registry.create();
-
-    registry.emplace<MeshComponent>(sunEntity,sphereMeshComponent);
-    registry.emplace<MeshComponent>(earthEntity, earthMeshComponent);
-    registry.emplace<MeshComponent>(moonEntity, moonMeshComponent);
+    OBBCollider* terrainCollider = new OBBCollider(vec3(10.0f, 0.5f, 10.0f));
     
-    // Projection matrix : 45 Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
-    mat4 pers = perspective(radians(45.0f), 1.0f * SCR_WIDTH / SCR_HEIGHT, 0.1f, 1000.0f);
+
+    //MeshComponent setup
+    MeshComponent terrainMeshComponent = MeshComponent({{0,cubeMesh}}, simpleShaders, {"moon.jpg"}, {"tex"});
+
+    MeshComponent cubeMeshComponent = MeshComponent({{0,cubeMesh}}, simpleShaders, {"sun.jpg"}, {"tex"});
     
-    // on attache les composants aux entite 
-    registry.emplace<Transform>(cameraWorldSideEntity).addPos({0, 0, 35});
-    registry.emplace<CameraComponent>(cameraWorldSideEntity, pers).speed = 5.0f;
+    //entities create and attach comps
 
-    renderSystem.activeCamera = cameraWorldSideEntity;
+    Entity terrainEntity = registry.create(); 
 
-
-    registry.emplace<Transform>(earthEntity).setPos({5, 0, 0});
-    registry.emplace<Transform>(moonEntity).setPos({5, 0, 0});
-    registry.emplace<Transform>(sunEntity).setPos({0,0,0});
-
-    registry.emplace<Hierarchy>(earthEntity, sunEntity, vector<Entity>{moonEntity});
-
-
-    registry.get<Transform>(sunEntity).setScale(vec3(2));
+    registry.emplace<Transform>(terrainEntity).setPos(vec3(0,-5,0));
+    registry.get<Transform>(terrainEntity).setScale(vec3(10,0.5,10));
+    registry.emplace<MeshComponent>(terrainEntity, terrainMeshComponent);
+    registry.emplace<Hierarchy>(terrainEntity, vector<Entity>{}).name = "Terrain";
+    auto& body = registry.emplace<RigidBodyComponent>(terrainEntity);
+    body.bodyType = PhysicsType::STATIC;
+    body.mesh = cubeMesh;
+    body.colliders.push_back(cubeCollider);
 
 
+    Entity cube1Entity = registry.create();
 
-    registry.get<Transform>(earthEntity).setScale(vec3(0.5));
-    registry.get<Transform>(moonEntity).setScale(vec3(1737.0 / 6378));
+    registry.emplace<Transform>(cube1Entity).setPos(vec3(0,0,0));
+    registry.emplace<MeshComponent>(cube1Entity, cubeMeshComponent);
+    registry.emplace<Hierarchy>(cube1Entity, vector<Entity>{}).name = "Cube1";
+    registry.emplace<RigidBodyComponent>(cube1Entity).mesh = cubeMesh;
+    registry.get<RigidBodyComponent>(cube1Entity).colliders.push_back(cubeCollider);
 
+    
+
+    //main loop
  
     Console& console = Console::getInstance();
 
@@ -265,7 +302,7 @@ int main()
         nbFrames++;
 
         // Inputs
-        processInput(window);
+        processInput(window, deltaTime, registry, renderSystem);
 
         // Debug
         nbLocalMatrixUpdate = new int(0);
@@ -276,24 +313,20 @@ int main()
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        vec3 rotationAngles = vec3(0.0f, currentFrame, 0.0f); 
-        quat rotationQuat = quat(rotationAngles);
-        registry.get<Transform>(sunEntity).setRot(rotationQuat);
-
-        rotationAngles = vec3(0.0f, currentFrame * 8, 0.0f); 
-        rotationQuat = quat(rotationAngles);
-        registry.get<Transform>(earthEntity).setRot(rotationQuat);
-
-        rotationAngles = vec3(0.0f, currentFrame * 5, 0.0f); 
-        rotationQuat = quat(rotationAngles);
-        registry.get<Transform>(moonEntity).setRot(rotationQuat);
-
-
-
-        transformSystem.update(registry);
+        
         cameraSystem.update(registry);
         cameraSystem.computeViewProj(registry);
 
+        static int precision = 10;
+
+        float newDelta = deltaTime / (float) precision;
+
+        for(int i = 0; i < precision; i++){
+
+            transformSystem.update(registry);
+            physicsSystem.update(registry, newDelta);
+
+        }
 
         if (sceneRenderer.isInitialized()) {
             if(!sceneRenderer.render(deltaTime, paused, renderSystem, registry)){
@@ -305,7 +338,7 @@ int main()
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        renderImGui();
+        renderImGui(registry);
 
         // Swap buffers
         glfwSwapBuffers(window);
@@ -329,76 +362,34 @@ int main()
 
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-void processInput(GLFWwindow *window)
+void processInput(GLFWwindow *window, float deltatime, Registry & registry, RenderSystem & renderSystem)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-   /*  // TODO [TP02] Camera - Déplacements
-    SceneCamera* mainCamera = SceneObject::getMainCamera();
-    if (mainCamera) {
-        float distance = mainCamera->speed;
+    // Camera movement
+    CameraComponent & camera = registry.get<CameraComponent>(renderSystem.activeCamera);
+    Transform & cameraTransform = registry.get<Transform>(renderSystem.activeCamera);
+    
+    float velocity = camera.speed * deltatime;
+    mat4 rotationMatrix = cameraTransform.getRot();
+    vec3 front = vec3(rotationMatrix * vec4(0.0f, 0.0f, -1.0f, 0.0f));
+    vec3 right = vec3(rotationMatrix * vec4(1.0f, 0.0f, 0.0f, 0.0f));
+    vec3 up = vec3(rotationMatrix * vec4(0.0f, 1.0f, 0.0f, 0.0f));
 
-        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-            distance *= 3;
-        if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS)
-            distance /= 3;
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        cameraTransform.addPos(front * velocity);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        cameraTransform.addPos(-front * velocity);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        cameraTransform.addPos(-right * velocity);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        cameraTransform.addPos(right * velocity);
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+        cameraTransform.addPos(up * velocity);
+    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
+        cameraTransform.addPos(-up * velocity);
 
-        distance *= static_cast<float>(deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-            mainCamera->transform.addPos(distance * mainCamera->getLocalTarget());
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-            mainCamera->transform.addPos(-distance * mainCamera->getLocalTarget());
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-            mainCamera->transform.addPos(distance * mainCamera->getLocalRight());
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-            mainCamera->transform.addPos(-distance * mainCamera->getLocalRight());
-        if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-            mainCamera->transform.addPos(distance * mainCamera->getLocalUp());
-        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-            mainCamera->transform.addPos(-distance * mainCamera->getLocalUp());
-        // TODO [Camera] ajouter bind changement de caméra perspective à orthonormal et inversement
-        // mat4 orth = ...
-        // mainCamera.setProjection(orth);
-    } */
-
-    /* if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
-        SceneObject::setMainCamera(cameraWorldSide);
-    if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS)
-        SceneObject::setMainCamera(cameraWorldUp);
-    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
-        SceneObject::setMainCamera(cameraTerrain); */
-
-    // TODO [TP04] Déplacement personnage
-    /* if (mainCharacter && mainCamera == cameraTerrain) {
-        float distance = 0.33f * static_cast<float>(deltaTime);
-
-        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-            distance *= 3;
-        if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS)
-            distance /= 3;
-
-        vec3 basePos = mainCharacter->transform.getPos();
-        vec3 movement;
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-            movement += -distance * vec3(0, 0, 1);
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-            movement += distance * vec3(0, 0, 1);
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-            movement += distance * vec3(1, 0, 0);
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-            movement += -distance * vec3(1, 0, 0);
-
-        // TODO [TP04] Déplacement selon heightmap
-        int x = (basePos + movement).x / (terrainSize.x) * heightmapWidth;
-        int y = (basePos + movement).z / (terrainSize.y) * heightmapHeight;
-        if (y >= 0 && y < heightmapHeight && x >= 0 && x < heightmapWidth) {
-            constexpr float offset = 0.1;
-            basePos.y = heightmapData[y * heightmapWidth * 3 + x * 3]/255.0f * 1 + offset;
-        } else
-            basePos.y = 1;
-        mainCharacter->transform.setPos(basePos + movement);
-    } */
 
     // Debug
     if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS && timeSinceKeyPressed >= 1.0f) {
@@ -440,6 +431,8 @@ void processInput(GLFWwindow *window)
         timeSinceKeyPressed = 0.0;
     }
 }
+
+
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)

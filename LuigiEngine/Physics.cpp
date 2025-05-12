@@ -2,6 +2,7 @@
 #include "LuigiEngine/ECS.h"
 #include "LuigiEngine/Transform.hpp"
 #include "LuigiEngine/ImGuiConsole.hpp"
+#include "LuigiEngine/PhysicsUtils.hpp"
 
 void PhysicsSystem::recomputeAABB(Registry& registry){
 
@@ -34,7 +35,7 @@ void PhysicsSystem::recomputeAABB(Registry& registry){
 
 }
 
-void PhysicsSystem::applyForces(Registry& registry, float deltaTime){
+void PhysicsSystem::integrate(Registry& registry, float deltaTime){
 
     auto view = registry.view<RigidBodyComponent, Transform>();
 
@@ -43,15 +44,25 @@ void PhysicsSystem::applyForces(Registry& registry, float deltaTime){
         RigidBodyComponent& rigidBody = view.get<RigidBodyComponent>(entity);
         Transform& transform = view.get<Transform>(entity);
         
+        if(rigidBody.isPaused) continue;
+
         if(rigidBody.bodyType == PhysicsType::STATIC){
             rigidBody.linearVelocity = vec3(0.0f);
             rigidBody.angularVelocity = vec3(0.0f);
             continue;
         }
 
-        rigidBody.linearVelocity = vec3(0,-3,0);
+        rigidBody.linearVelocity *= (1.0f - rigidBody.linearDamping * deltaTime);
+
+        vec3 acceleration = rigidBody.forceAccumulator * rigidBody.inverseMass;
+        rigidBody.linearVelocity += acceleration * deltaTime;
+
+        rigidBody.linearVelocity = gravity;
 
         transform.addPos(rigidBody.linearVelocity * deltaTime);
+
+        rigidBody.forceAccumulator = vec3(0.0f);
+        rigidBody.torqueAccumulator = vec3(0.0f);
     }
 
 }
@@ -82,12 +93,9 @@ void PhysicsSystem::broadCollisionDetection(Registry& registry){
                                rigidBodyA.aabbCollider.max.z >= rigidBodyB.aabbCollider.min.z;
 
             if (collisionX && collisionY && collisionZ) {
-                Console::getInstance().addLog("Collision detected between Entity " + std::to_string(entityA) + 
-                                  " and Entity " + std::to_string(entityB));
+                Console::getInstance().addLog("Broad Phase between Entity " + std::to_string(entityA) + " and Entity " + std::to_string(entityB));
 
                 narrowCollisionDetection(entityA, rigidBodyA, transformA,entityB, rigidBodyB, transformB);
-            }else{
-
             }
 
 
@@ -98,51 +106,33 @@ void PhysicsSystem::broadCollisionDetection(Registry& registry){
 
 }
 
+//temporaire n'utilise que les aabb pour l'instant
 void PhysicsSystem::narrowCollisionDetection(Entity entityA, RigidBodyComponent& rigidBodyA, Transform& transformA, Entity entityB ,RigidBodyComponent& rigidBodyB, Transform& transformB){
 
-    CollisionInfo collisionInfo;
+    
 
-    // Compute overlap in each axis
-    vec3 overlap;
-    overlap.x = std::min(rigidBodyA.aabbCollider.max.x, rigidBodyB.aabbCollider.max.x) - 
-                std::max(rigidBodyA.aabbCollider.min.x, rigidBodyB.aabbCollider.min.x);
-    overlap.y = std::min(rigidBodyA.aabbCollider.max.y, rigidBodyB.aabbCollider.max.y) - 
-                std::max(rigidBodyA.aabbCollider.min.y, rigidBodyB.aabbCollider.min.y);
-    overlap.z = std::min(rigidBodyA.aabbCollider.max.z, rigidBodyB.aabbCollider.max.z) - 
-                std::max(rigidBodyA.aabbCollider.min.z, rigidBodyB.aabbCollider.min.z);
+    for(const Collider* colliderAptr : rigidBodyA.colliders){
+        for(const Collider* colliderBptr : rigidBodyB.colliders){
+            CollisionInfo collisionInfo;
 
-    // Determine the axis of minimum penetration
-    float minOverlap = std::min({overlap.x, overlap.y, overlap.z});
-    vec3 collisionNormal;
+            const Collider& colliderA = *colliderAptr;
+            const Collider& colliderB = *colliderBptr;
 
-    if (minOverlap == overlap.x) {
-        collisionNormal = vec3((rigidBodyA.aabbCollider.min.x < rigidBodyB.aabbCollider.min.x) ? -1.0f : 1.0f, 0.0f, 0.0f);
-    } else if (minOverlap == overlap.y) {
-        collisionNormal = vec3(0.0f, (rigidBodyA.aabbCollider.min.y < rigidBodyB.aabbCollider.min.y) ? -1.0f : 1.0f, 0.0f);
-    } else {
-        collisionNormal = vec3(0.0f, 0.0f, (rigidBodyA.aabbCollider.min.z < rigidBodyB.aabbCollider.min.z) ? -1.0f : 1.0f);
+            CollisionDetection::testCollision(entityA, colliderA, transformA, entityB, colliderB, transformB, collisionInfo);
+            if(collisionInfo.isColliding){
+                collisionList.push_back(collisionInfo);
+                Console::getInstance().addLog("Collision detected between Entity " + std::to_string(entityA) + " and Entity " + std::to_string(entityB));
+
+                Console::getInstance().addLog("Collision Info: Normal = (" + std::to_string(collisionInfo.normal.x) + ", " + std::to_string(collisionInfo.normal.y) + ", " + std::to_string(collisionInfo.normal.z) + "), Penetration Depth = " + std::to_string(collisionInfo.penetrationDepth));
+            }
+        }
     }
 
-    // Populate collision info
-    collisionInfo.normal = collisionNormal;
-    collisionInfo.penetrationDepth = minOverlap;
-
-    // Log collision details
-    Console::getInstance().addLog("Collision Info: Normal (" + std::to_string(collisionNormal.x) + ", " +
-                                  std::to_string(collisionNormal.y) + ", " + std::to_string(collisionNormal.z) +
-                                  "), Depth: " + std::to_string(minOverlap));
-
-    
-    collisionInfo.entityA = entityA;
-    collisionInfo.entityB = entityB;
-    collisionInfo.isColliding = true;
-    collisionList.push_back(collisionInfo);
 }
 
 void PhysicsSystem::collisionResolution(Registry& registry){
 
     for(CollisionInfo& collision : collisionList){
-
         RigidBodyComponent& rigidBodyA = registry.get<RigidBodyComponent>(collision.entityA);
         RigidBodyComponent& rigidBodyB = registry.get<RigidBodyComponent>(collision.entityB);
 
@@ -171,11 +161,11 @@ void PhysicsSystem::update(Registry& registry, float deltaTime) {
 
     recomputeAABB(registry);
 
-    applyForces(registry, deltaTime);
+    integrate(registry, deltaTime);
 
     broadCollisionDetection(registry);
 
-    collisionResolution(registry);
+    collisionResolution(registry); 
 
 }
 
