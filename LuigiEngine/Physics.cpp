@@ -4,6 +4,8 @@
 #include "LuigiEngine/ImGuiConsole.hpp"
 #include "LuigiEngine/PhysicsUtils.hpp"
 
+
+//a modifier pour utiliser la liste de colliders plutot qu'une seule mesh 
 void PhysicsSystem::recomputeAABB(Registry& registry){
 
     auto view = registry.view<RigidBodyComponent, Transform>();
@@ -67,6 +69,7 @@ void PhysicsSystem::integrate(Registry& registry, float deltaTime){
 
 }
 
+//utilise les aabb classique
 void PhysicsSystem::broadCollisionDetection(Registry& registry){
 
     auto view = registry.view<RigidBodyComponent, Transform>();
@@ -93,7 +96,7 @@ void PhysicsSystem::broadCollisionDetection(Registry& registry){
                                rigidBodyA.aabbCollider.max.z >= rigidBodyB.aabbCollider.min.z;
 
             if (collisionX && collisionY && collisionZ) {
-                Console::getInstance().addLog("Broad Phase between Entity " + std::to_string(entityA) + " and Entity " + std::to_string(entityB));
+                //Console::getInstance().addLog("broad phase collision e " + std::to_string(entityA) + " e " + std::to_string(entityB));
 
                 narrowCollisionDetection(entityA, rigidBodyA, transformA,entityB, rigidBodyB, transformB);
             }
@@ -106,14 +109,13 @@ void PhysicsSystem::broadCollisionDetection(Registry& registry){
 
 }
 
-//temporaire n'utilise que les aabb pour l'instant
 void PhysicsSystem::narrowCollisionDetection(Entity entityA, RigidBodyComponent& rigidBodyA, Transform& transformA, Entity entityB ,RigidBodyComponent& rigidBodyB, Transform& transformB){
-
-    
 
     for(const Collider* colliderAptr : rigidBodyA.colliders){
         for(const Collider* colliderBptr : rigidBodyB.colliders){
             CollisionInfo collisionInfo;
+            collisionInfo.entityA = entityA;
+            collisionInfo.entityB = entityB;
 
             const Collider& colliderA = *colliderAptr;
             const Collider& colliderB = *colliderBptr;
@@ -121,9 +123,9 @@ void PhysicsSystem::narrowCollisionDetection(Entity entityA, RigidBodyComponent&
             CollisionDetection::testCollision(entityA, colliderA, transformA, entityB, colliderB, transformB, collisionInfo);
             if(collisionInfo.isColliding){
                 collisionList.push_back(collisionInfo);
-                Console::getInstance().addLog("Collision detected between Entity " + std::to_string(entityA) + " and Entity " + std::to_string(entityB));
+                //Console::getInstance().addLog("collision narrow phase e " + std::to_string(entityA) + " e " + std::to_string(entityB));
 
-                Console::getInstance().addLog("Collision Info: Normal = (" + std::to_string(collisionInfo.normal.x) + ", " + std::to_string(collisionInfo.normal.y) + ", " + std::to_string(collisionInfo.normal.z) + "), Penetration Depth = " + std::to_string(collisionInfo.penetrationDepth));
+                //Console::getInstance().addLog("collision info normal = (" + std::to_string(collisionInfo.normal.x) + ", " + std::to_string(collisionInfo.normal.y) + ", " + std::to_string(collisionInfo.normal.z) + "), pen depth = " + std::to_string(collisionInfo.penetrationDepth));
             }
         }
     }
@@ -157,6 +159,8 @@ void PhysicsSystem::collisionResolution(Registry& registry){
 
 }
 
+
+
 void PhysicsSystem::update(Registry& registry, float deltaTime) {
 
     recomputeAABB(registry);
@@ -165,7 +169,6 @@ void PhysicsSystem::update(Registry& registry, float deltaTime) {
 
     broadCollisionDetection(registry);
 
-    collisionResolution(registry); 
+    collisionResolution(registry);
 
 }
-

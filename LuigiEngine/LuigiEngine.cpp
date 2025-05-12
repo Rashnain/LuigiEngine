@@ -138,6 +138,8 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
     lastMousePos = currentMousePos;
 }
 
+GLuint simpleShaders;
+
 int main()
 {
     // Initialise GLFW
@@ -219,7 +221,7 @@ int main()
 
     //shaders setup
 
-    GLuint simpleShaders = LoadShaders("shaders/vertex.glsl", "shaders/fragment.glsl");
+    simpleShaders  = LoadShaders("shaders/vertex.glsl", "shaders/fragment.glsl");
     GLuint phongShaders = LoadShaders("shaders/vertex_phong.glsl", "shaders/fragment_phong.glsl");
     GLuint terrainShaders = LoadShaders("shaders/vertex_terrain.glsl", "shaders/fragment_terrain.glsl");
 
@@ -243,7 +245,7 @@ int main()
     textureComponent.texFiles.push_back("sun.jpg");
     textureComponent.texUniforms.push_back("tex"); */
 
-    OBBCollider* cubeCollider = new OBBCollider(vec3(0.5f, 0.5f, 0.5f));
+    OBBCollider* cubeCollider = new OBBCollider(vec3(1.0f, 1.0f, 1.0f));
 
     OBBCollider* terrainCollider = new OBBCollider(vec3(10.0f, 0.5f, 10.0f));
     
@@ -268,7 +270,6 @@ int main()
 
 
     Entity cube1Entity = registry.create();
-
     registry.emplace<Transform>(cube1Entity).setPos(vec3(0,0,0));
     registry.emplace<MeshComponent>(cube1Entity, cubeMeshComponent);
     registry.emplace<Hierarchy>(cube1Entity, vector<Entity>{}).name = "Cube1";
@@ -289,6 +290,9 @@ int main()
 
  
     lastFrame = glfwGetTime();
+
+    int physicsPrecision = 10;
+    const float physicsStep = 1.0/60.0f; //delta constant pour la physique
 
     do {
         // Measure speed
@@ -317,15 +321,10 @@ int main()
         cameraSystem.update(registry);
         cameraSystem.computeViewProj(registry);
 
-        static int precision = 10;
 
-        float newDelta = deltaTime / (float) precision;
-
-        for(int i = 0; i < precision; i++){
-
-            transformSystem.update(registry);
-            physicsSystem.update(registry, newDelta);
-
+        for (int i = 0; i < physicsPrecision; ++i) {
+            transformSystem.update(registry); 
+            physicsSystem.update(registry, physicsStep / (float) physicsPrecision);
         }
 
         if (sceneRenderer.isInitialized()) {
@@ -334,6 +333,9 @@ int main()
             }
 
         }
+
+        //console.addLog("Physics updates: " + to_string(physicsUpdate));
+        //physicsUpdate = 0;
 
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -428,6 +430,25 @@ void processInput(GLFWwindow *window, float deltatime, Registry & registry, Rend
             cout << "Refresh rate mode set to V-Sync." << endl;
         }
         nbFrames = 0;
+        timeSinceKeyPressed = 0.0;
+    }
+
+    if(glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS && timeSinceKeyPressed >= 0.5f){
+
+        float randomX = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 20.0f - 10.0f; 
+        float randomY = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 20.0f - 10.0f;
+        string randomName = "Cube" + to_string(rand() % 1000);
+
+        Mesh* cubeMesh = new Mesh("models/cube.obj");
+        MeshComponent cubeMeshComponent = MeshComponent({{0,cubeMesh}}, simpleShaders, {"sun.jpg"}, {"tex"});
+        OBBCollider* cubeCollider = new OBBCollider(vec3(1.0f, 1.0f, 1.0f));
+        Entity cube1Entity = registry.create();
+        registry.emplace<Transform>(cube1Entity).setPos(vec3(randomX, 0, randomY));
+        registry.emplace<MeshComponent>(cube1Entity, cubeMeshComponent);
+        registry.emplace<Hierarchy>(cube1Entity, vector<Entity>{}).name = randomName;
+        registry.emplace<RigidBodyComponent>(cube1Entity).mesh = cubeMesh;
+        registry.get<RigidBodyComponent>(cube1Entity).colliders.push_back(cubeCollider);
+
         timeSinceKeyPressed = 0.0;
     }
 }

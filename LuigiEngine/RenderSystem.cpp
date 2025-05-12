@@ -1,8 +1,12 @@
 #include "RenderSystem.hpp"
 #include "LuigiEngine/ECS.h"
 #include "LuigiEngine/SceneCamera.hpp"
-
+#include "LuigiEngine/Physics.hpp"
+#include <glm/gtc/type_ptr.hpp>
 using namespace glm;
+
+
+
 
 void RenderSystem::setupMeshRendering(const MeshComponent &meshComp,
                                       GLuint programID) {
@@ -52,7 +56,6 @@ void RenderSystem::render(Registry &registry) {
   for (auto entity : registry.view<MeshComponent, Transform>()) {
 
     // std::cout << "rendering entity " << entity << std::endl;
-
     MeshComponent &meshComp = registry.get<MeshComponent>(entity);
     Transform &transform = registry.get<Transform>(entity);
 
@@ -80,4 +83,7 @@ void RenderSystem::render(Registry &registry) {
     glDisableVertexAttribArray(2);
     glDisableVertexAttribArray(3);
   }
+
+  
+
 }

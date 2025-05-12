@@ -82,12 +82,14 @@ struct AABBCollider : public Collider {
 
 struct OBBCollider : public Collider {
     vec3 halfSize; 
+    vec3 rotation;
     
     OBBCollider(const vec3& halfSize) : halfSize(halfSize){
         type = ColliderType::OBB;
+        rotation = vec3(0.0f);
     }
 
-    //un peu degueu mais c'est le mieux
+    //un peu moche mais c'est le mieux
     void getVertices(const vec3& center, const vec3& right, const vec3& up, const vec3& front, vec3 vertices[8]) const {
         vertices[0] = center + right * halfSize.x + up * halfSize.y + front * halfSize.z;
         vertices[1] = center + right * halfSize.x + up * halfSize.y - front * halfSize.z;
@@ -129,7 +131,7 @@ using CollisionFn = void(*)(const Entity, const Collider&, const Transform&, con
 
 class CollisionDetection {
 
-    // Table for quickly identifying which function to use based on colliders
+    //attribue automatiquement la bonne fonction selon les types de colliders
     static constexpr int NUM_COLLIDER_TYPES = 6;
     static CollisionFn collisionDispatchTable[NUM_COLLIDER_TYPES][NUM_COLLIDER_TYPES];
 

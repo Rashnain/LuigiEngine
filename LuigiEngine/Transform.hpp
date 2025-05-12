@@ -46,9 +46,11 @@ public:
     mat4 getRot() { return localRot; }
     void setRot(const quat& quatRot);
     vec3 getScale() { return localScale; }
+    vec3 getScale() const { return localScale; }
     void addScale(const vec3& vec);
     void setScale(vec3 vec);
-    mat4 getGlobalModel() { return globalModel; }
+    inline mat4 getGlobalModel() { return globalModel; }
+    inline mat4 getGlobalModel() const { return globalModel; }
     void computeGlobalModelMatrix();
     void computeGlobalModelMatrix(const mat4& parentModel);
 

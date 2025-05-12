@@ -177,7 +177,7 @@ void renderImGui(Registry & registry) {
                 mat4 rotation = transform.getRot();
 
                 ImGui::Text("Position");
-                if (ImGui::SliderFloat3("##Position", &position.x, -20.0f, 20.0f)) {
+                if (ImGui::SliderFloat3("##Position", &position.x, -10.0f, 10.0f)) {
                     transform.setPos(position);
                 }
 
@@ -191,9 +191,9 @@ void renderImGui(Registry & registry) {
             if(registry.has<RigidBodyComponent>(selectedEntity)){
                 RigidBodyComponent& rigidBody = registry.get<RigidBodyComponent>(selectedEntity);
                 ImGui::Text("Linear Velocity");
-                ImGui::SliderFloat3("##Linear Velocity", &rigidBody.linearVelocity.x, -20.0f, 20.0f);
+                ImGui::SliderFloat3("##Linear Velocity", &rigidBody.linearVelocity.x, -10.0f, 10.0f);
                 ImGui::Text("Angular Velocity");
-                ImGui::SliderFloat3("##Angular Velocity", &rigidBody.angularVelocity.x, -20.0f, 20.0f);
+                ImGui::SliderFloat3("##Angular Velocity", &rigidBody.angularVelocity.x, -10.0f, 10.0f);
 
                 ImGui::Text("AABB min: %.2f, %.2f, %.2f", rigidBody.aabbCollider.min.x, rigidBody.aabbCollider.min.y, rigidBody.aabbCollider.min.z);
                 ImGui::Text("AABB max: %.2f, %.2f, %.2f", rigidBody.aabbCollider.max.x, rigidBody.aabbCollider.max.y, rigidBody.aabbCollider.max.z);

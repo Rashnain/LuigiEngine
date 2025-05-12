@@ -1,6 +1,7 @@
 #include "PhysicsUtils.hpp"
 #include "LuigiEngine/Transform.hpp"
 #include "glm/detail/type_vec.hpp"
+#include "glm/gtx/euler_angles.hpp"
 
 CollisionFn CollisionDetection::collisionDispatchTable[CollisionDetection::NUM_COLLIDER_TYPES][CollisionDetection::NUM_COLLIDER_TYPES] = {
     {collision_sphere_sphere, collision_sphere_cylinder, collision_sphere_aabb, collision_sphere_obb, collision_sphere_plane, nullptr},
@@ -11,95 +12,89 @@ CollisionFn CollisionDetection::collisionDispatchTable[CollisionDetection::NUM_C
     {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}
 };
 
+//nos obb sont definit en local, on veut en global
+struct WorldOBB{
+    vec3 globalCentroid;
+    vec3 halfSize;
+    vec3 axes[3]; // la nouvelle base
+};
+
+void getWorldOBB(const OBBCollider& collider, const Transform& transform, WorldOBB& worldOBB){
+    mat4 transformModel = transform.getGlobalModel();
+
+    mat4 colliderRotation = yawPitchRoll(collider.rotation.y, collider.rotation.x, collider.rotation.z);
+
+    mat4 newModel = transformModel * colliderRotation;
+
+    worldOBB.globalCentroid = newModel * vec4(collider.localCentroid, 1.0f);
+
+    worldOBB.axes[0] = glm::normalize(glm::vec3(newModel[0]));
+    worldOBB.axes[1] = glm::normalize(glm::vec3(newModel[1]));
+    worldOBB.axes[2] = glm::normalize(glm::vec3(newModel[2]));
+    
+    worldOBB.halfSize = collider.halfSize * transform.getScale();
+}
+
 void CollisionDetection::collision_obb_obb(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB, const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo){
+
+    collisionInfo.isColliding = false;
+
+    mat4 modelA = transformA.getGlobalModel();
+    mat4 modelB = transformB.getGlobalModel();
 
     const OBBCollider& obbA = (const OBBCollider&) colliderA;
     const OBBCollider& obbB = (const OBBCollider&) colliderB;
-    vec3 halfSizeA = obbA.halfSize;
-    vec3 halfSizeB = obbB.halfSize;
-    vec3 centerA = transformA.getPos();
-    vec3 centerB = transformB.getPos();
-
-    vec3 delta = centerB - centerA;
-
-    vec3 rightA = transformA.getRight();
-    vec3 upA = transformA.getUp();
-    vec3 frontA = transformA.getFront();
-    vec3 rightB = transformB.getRight();
-    vec3 upB = transformB.getUp();
-    vec3 frontB = transformB.getFront();
-    vec3 axes[15] = {rightA, upA, frontA, rightB, upB, frontB,
-                     cross(rightA, rightB), cross(rightA, upB), cross(rightA, frontB),
-                     cross(upA, rightB), cross(upA, upB), cross(upA, frontB),
-                     cross(frontA, rightB), cross(frontA, upB), cross(frontA, frontB)};
+    
+    WorldOBB wobbA;
+    WorldOBB wobbB;
+    getWorldOBB(obbA, transformA, wobbA);
+    getWorldOBB(obbB, transformB, wobbB);
 
     float minOverlap = std::numeric_limits<float>::max();
+    vec3 minAxis;
 
-    vec3 obbAVertices[8];
-    vec3 obbBVertices[8];
-    obbA.getVertices(centerA, rightA, upA, frontA, obbAVertices);
-    obbB.getVertices(centerB, rightB, upB, frontB, obbBVertices);
+    //fonction lambda pour tester un axe, algo SAT
+    auto testOverlap = [&](const vec3 axis) {
+        if(length(axis) < 0.0001f) return true;
+        float projectionA = abs(dot(axis, wobbA.axes[0])) * wobbA.halfSize.x + abs(dot(axis, wobbA.axes[1])) * wobbA.halfSize.y+ abs(dot(axis, wobbA.axes[2])) * wobbA.halfSize.z;
+        float projectionB = abs(dot(axis, wobbB.axes[0])) * wobbB.halfSize.x + abs(dot(axis, wobbB.axes[1])) * wobbB.halfSize.y + abs(dot(axis, wobbB.axes[2])) * wobbB.halfSize.z;
 
-    for(int i = 0; i < 15; i++){
-        vec3 axis = axes[i];
-        axis = normalize(axis);
+        float dist = abs(dot( wobbB.globalCentroid - wobbA.globalCentroid , axis ));
 
-        float minA = std::numeric_limits<float>::max(), maxA = -std::numeric_limits<float>::max();
-        float minB = std::numeric_limits<float>::max(), maxB = -std::numeric_limits<float>::max();
-        
-        //on projette A
-        for(int j = 0; j < 8; j++){
-            float dotA = dot(obbAVertices[j], axis);
-            minA = std::min(minA, dotA);
-            maxA = std::max(maxA, dotA);
-        }
+        float overlap = projectionA + projectionB - dist;
 
-        //on projette B
-        for(int j = 0; j < 8; j++){
-            float dotB = dot(obbBVertices[j], axis);
-            minB = std::min(minB, dotB);
-            maxB = std::max(maxB, dotB);
-        }
+        if(overlap < 0) return false;
 
-        if(maxA < minB || maxB < minA) {
-            //pas d'overlap donc pas de collision
-            collisionInfo.isColliding = false;
-            return;
-        }
-
-        float overlap = std::min(maxA, maxB) - std::max(minA, minB);
-    
         if(overlap < minOverlap){
             minOverlap = overlap;
-            collisionInfo.normal = axis;
+            if(dot(wobbB.globalCentroid - wobbA.globalCentroid, axis ) < 0){ //on s'assure que la normal pointent toujours de A vers B
+                minAxis = axis;
+            }else{
+                minAxis = - axis;
+            }
+        }
+
+        return true;
+    };
+
+    //test des 15 axes
+    for(int i = 0; i < 3; i++){ if(!testOverlap(wobbA.axes[i])) return; }
+    for(int i = 0; i < 3; i++){ if(!testOverlap(wobbB.axes[i])) return; }
+    for(int i = 0; i < 3; i++){
+        for(int j = 0; j < 3; j++){ 
+            vec3 newAxis = cross(wobbA.axes[i], wobbB.axes[j]); 
+            newAxis = normalize(newAxis);
+            if(!testOverlap(newAxis)) return;
         }
     }
-    
-    collisionInfo.penetrationDepth = minOverlap;
-
-    collisionInfo.collisionPointA = centerA + collisionInfo.normal * halfSizeA.x;
-    collisionInfo.collisionPointB = centerB - collisionInfo.normal * halfSizeB.x;
 
     collisionInfo.isColliding = true;
-    collisionInfo.entityA = entityA;
-    collisionInfo.entityB = entityB;
+    collisionInfo.normal = minAxis;
+    collisionInfo.penetrationDepth = minOverlap;
+
+
+
     
-    //normal de A vers B
-    if (dot(collisionInfo.normal, delta) < 0)
-        collisionInfo.normal = -collisionInfo.normal;
-
-
-    std::cout << "Collision Info:" << std::endl;
-    std::cout << "Is Colliding: " << (collisionInfo.isColliding ? "Yes" : "No") << std::endl;
-    if (collisionInfo.isColliding) {
-        std::cout << "Penetration Depth: " << collisionInfo.penetrationDepth << std::endl;
-    }
-    std::cout << "Collision Normal: (" << collisionInfo.normal.x << ", " << collisionInfo.normal.y << ", " << collisionInfo.normal.z << ")" << std::endl;
-
-    std::cout << "Collision Point A: (" << collisionInfo.collisionPointA.x << ", " << collisionInfo.collisionPointA.y << ", " << collisionInfo.collisionPointA.z << ")" << std::endl;
-    std::cout << "Collision Point B: (" << collisionInfo.collisionPointB.x << ", " << collisionInfo.collisionPointB.y << ", " << collisionInfo.collisionPointB.z << ")" << std::endl;
-    std::cout << "Entity A: " << collisionInfo.entityA << std::endl;
-    std::cout << "Entity B: " << collisionInfo.entityB << std::endl;
 }
 
 void CollisionDetection::collision_sphere_sphere(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB, const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {
