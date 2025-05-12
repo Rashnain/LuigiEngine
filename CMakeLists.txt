@@ -3,6 +3,7 @@ cmake_minimum_required (VERSION 3.0)
 project(LuigiEngine)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 
 
 find_package(OpenGL REQUIRED)
@@ -95,9 +96,9 @@ target_link_libraries(LuigiEngine
 
 target_compile_features(LuigiEngine PRIVATE cxx_std_17)
 
-target_compile_options(LuigiEngine PRIVATE
-    -O3
-)
+#target_compile_options(LuigiEngine PRIVATE -g)
+target_compile_options(LuigiEngine PRIVATE -O3 -march=native -mtune=native -flto -ffast-math -fno-rtti -funroll-loops -fomit-frame-pointer)
+target_link_options(LuigiEngine PRIVATE -flto=auto)
 
 
 

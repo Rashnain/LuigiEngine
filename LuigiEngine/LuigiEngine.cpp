@@ -70,6 +70,10 @@ int heightmapWidth;
 int heightmapHeight;
 ivec2 terrainSize{10, 10};
 
+int physicsPrecision = 2;
+const float physicsStep = 1.0/60.0f; //delta constant pour la physique
+float physicsFrameTime = 0.0f;
+
 /*******************************************************************************/
 
 // TODO [TP01] Génération de terrain plat
@@ -138,13 +142,36 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
     lastMousePos = currentMousePos;
 }
 
-
 GLuint simpleShaders;
 
 //for testing
 Mesh* testMesh;
 MeshComponent testMeshComponent;
-OBBCollider* testOBBCollider;
+TextureComponent testTextureComponent;
+Collider* testCollider;
+
+static std::mt19937 rng(std::random_device{}());
+static std::uniform_int_distribution<int> distName(0, 9999);
+
+int cubeCount;
+
+void makeBox(Registry& registry, vec3 position, float scale = 1.0f ){
+    
+    std::string randomName = "Cube" + std::to_string(cubeCount++);
+    Entity cube = registry.create();
+
+    Transform& transform = registry.emplace<Transform>(cube);
+    transform.setPos(position);
+    transform.setScale(vec3(scale));
+    
+    registry.emplace<TextureComponent>(cube, testTextureComponent);
+    registry.emplace<MeshComponent>(cube, testMeshComponent);
+    registry.emplace<Hierarchy>(cube, std::vector<Entity>{}).name = randomName;
+    auto& rigidBody = registry.emplace<RigidBodyComponent>(cube);
+    rigidBody.mesh = testMesh;
+    rigidBody.colliders.push_back(testCollider);
+}
+
 
 int main()
 {
@@ -209,6 +236,8 @@ int main()
     glGenVertexArrays(1, &VertexArrayID);
     glBindVertexArray(VertexArrayID);
 
+    Console& console = Console::getInstance();
+
     /****************************************/
     //ECS setup
 
@@ -218,12 +247,7 @@ int main()
     CameraSystem cameraSystem = CameraSystem();
     PhysicsSystem physicsSystem = PhysicsSystem();
 
-    //camera setup
-    Entity cameraWorldSideEntity = registry.create();
-    mat4 pers = perspective(radians(45.0f), 1.0f * SCR_WIDTH / SCR_HEIGHT, 0.1f, 1000.0f);
-    registry.emplace<Transform>(cameraWorldSideEntity).addPos({0, 0, 20});
-    registry.emplace<CameraComponent>(cameraWorldSideEntity, pers).speed = 10.0f;
-    renderSystem.activeCamera = cameraWorldSideEntity;
+    
 
     //shaders setup
 
@@ -257,57 +281,99 @@ int main()
     
     PlaneCollider* planeCollider = new PlaneCollider(vec3(0.0f,1.0f,0.0f));
 
-    
-    
-
     //MeshComponent setup
     MeshComponent terrainMeshComponent = MeshComponent({{0,cubeMesh}}, simpleShaders, {"moon.jpg"}, {"tex"});
 
     MeshComponent cubeMeshComponent = MeshComponent({{0,cubeMesh}}, simpleShaders, {"sun.jpg"}, {"tex"});
 
     MeshComponent sphereMeshComponent = MeshComponent({{0,sphereLOD1}}, simpleShaders, {"mercury.jpg"}, {"tex"});
+
+     //testing
+    //testMesh = new Mesh("models/cube.obj");
+    testMesh = new Mesh("models/sphereLOD1.obj");
+    testMeshComponent = MeshComponent({{0,testMesh}}, simpleShaders);
+    testTextureComponent = TextureComponent({"sun.jpg"}, {"tex"});
+    //testCollider = new OBBCollider(vec3(1.0f, 1.0f, 1.0f));
+    testCollider = new SphereCollider(1.0f);
+
+
+    auto setupScene = [&](){
+        registry.clear();
+
+        //camera setup
+        Entity cameraWorldSideEntity = registry.create();
+        mat4 pers = perspective(radians(45.0f), 1.0f * SCR_WIDTH / SCR_HEIGHT, 0.1f, 1000.0f);
+        registry.emplace<Transform>(cameraWorldSideEntity).addPos({0, 0, 20});
+        registry.emplace<CameraComponent>(cameraWorldSideEntity, pers).speed = 10.0f;
+        renderSystem.activeCamera = cameraWorldSideEntity;
+        
+        //entities create and attach comps
+
+        Entity terrainEntity = registry.create(); 
+
+        registry.emplace<Transform>(terrainEntity).setPos(vec3(0,-5,0));
+        registry.get<Transform>(terrainEntity).setScale(vec3(40,0.5,40));
+        registry.emplace<MeshComponent>(terrainEntity, terrainMeshComponent);
+        registry.emplace<Hierarchy>(terrainEntity, vector<Entity>{}).name = "Terrain";
+        auto& body = registry.emplace<RigidBodyComponent>(terrainEntity);
+        body.bodyType = PhysicsType::STATIC;
+        body.mesh = cubeMesh;
+        body.colliders.push_back(cubeCollider);
+
+        /*
+        Entity sphere1Entity = registry.create();
+        registry.emplace<Transform>(sphere1Entity).setPos(vec3(-5,0,0));
+        registry.emplace<MeshComponent>(sphere1Entity, sphereMeshComponent);
+        registry.emplace<Hierarchy>(sphere1Entity, vector<Entity>{}).name = "Sphere1";
+        registry.emplace<RigidBodyComponent>(sphere1Entity).mesh = sphereLOD1;
+        registry.get<RigidBodyComponent>(sphere1Entity).colliders.push_back(sphereCollider);
+        //registry.get<RigidBodyComponent>(sphere1Entity).linearVelocity = vec3(3,0,0);
+
+        Entity cube1Entity = registry.create();
+        registry.emplace<Transform>(cube1Entity).setPos(vec3(0,0,0));
+        registry.emplace<MeshComponent>(cube1Entity, cubeMeshComponent);
+        registry.emplace<Hierarchy>(cube1Entity, vector<Entity>{}).name = "Cube1";
+        registry.emplace<RigidBodyComponent>(cube1Entity).mesh = cubeMesh;
+        registry.get<RigidBodyComponent>(cube1Entity).colliders.push_back(cubeCollider);
+
+        Entity sphere2Entity = registry.create();
+        registry.emplace<Transform>(sphere2Entity).setPos(vec3(5,0,0));
+        registry.emplace<MeshComponent>(sphere2Entity, sphereMeshComponent);
+        registry.emplace<Hierarchy>(sphere2Entity, vector<Entity>{}).name = "Sphere2";
+        registry.emplace<RigidBodyComponent>(sphere2Entity).mesh = sphereLOD1;
+        registry.get<RigidBodyComponent>(sphere2Entity).colliders.push_back(sphereCollider); */
+        std::cout << "creating boxes " << std::endl;
+        int size = 10;
+        double totalTime = 0.0;
+        int totalBoxes = size * size * size;
+        cubeCount = 0;
+        float scale = 0.5f;
+
+        for (int x = 0; x < size; ++x) {
+            for (int y = 0; y < size; ++y) {
+                for (int z = 0; z < size; ++z) {
+                    double startTime = glfwGetTime();
+                    makeBox(registry, vec3(x * scale * 2, y * scale * 2, z * scale *2), scale);
+                    double endTime = glfwGetTime();
+                    double boxTime = endTime - startTime;
+                    totalTime += boxTime;
+                }
+            }
+        }
+
+        double averageTime = totalTime / totalBoxes;
+        console.addLog("Average time to create a box: " + to_string(averageTime) + " seconds");
+    };
     
-    //entities create and attach comps
 
-    Entity terrainEntity = registry.create(); 
-
-    registry.emplace<Transform>(terrainEntity).setPos(vec3(0,-5,0));
-    registry.get<Transform>(terrainEntity).setScale(vec3(40,0.5,40));
-    registry.emplace<MeshComponent>(terrainEntity, terrainMeshComponent);
-    registry.emplace<Hierarchy>(terrainEntity, vector<Entity>{}).name = "Terrain";
-    auto& body = registry.emplace<RigidBodyComponent>(terrainEntity);
-    body.bodyType = PhysicsType::STATIC;
-    body.mesh = cubeMesh;
-    body.colliders.push_back(cubeCollider);
-
-
+    setupScene();
     
 
-    Entity sphere1Entity = registry.create();
-    registry.emplace<Transform>(sphere1Entity).setPos(vec3(-5,0,0));
-    registry.emplace<MeshComponent>(sphere1Entity, sphereMeshComponent);
-    registry.emplace<Hierarchy>(sphere1Entity, vector<Entity>{}).name = "Sphere1";
-    registry.emplace<RigidBodyComponent>(sphere1Entity).mesh = sphereLOD1;
-    registry.get<RigidBodyComponent>(sphere1Entity).colliders.push_back(sphereCollider);
-    registry.get<RigidBodyComponent>(sphere1Entity).linearVelocity = vec3(3,0,0);
-
-    Entity cube1Entity = registry.create();
-    registry.emplace<Transform>(cube1Entity).setPos(vec3(5,0,0));
-    registry.emplace<MeshComponent>(cube1Entity, cubeMeshComponent);
-    registry.emplace<Hierarchy>(cube1Entity, vector<Entity>{}).name = "Cube1";
-    registry.emplace<RigidBodyComponent>(cube1Entity).mesh = cubeMesh;
-    registry.get<RigidBodyComponent>(cube1Entity).colliders.push_back(cubeCollider);
-
-    
-
-    //testing
-    testMesh = new Mesh("models/cube.obj");
-    testMeshComponent = MeshComponent({{0,testMesh}}, simpleShaders, {"sun.jpg"}, {"tex"});
-    testOBBCollider = new OBBCollider(vec3(1.0f, 1.0f, 1.0f));
+   
 
     //main loop
  
-    Console& console = Console::getInstance();
+    
 
     initImGui(window);
     SceneRenderer& sceneRenderer = SceneRenderer::getInstance();
@@ -318,8 +384,7 @@ int main()
  
     lastFrame = glfwGetTime();
 
-    int physicsPrecision = 10;
-    const float physicsStep = 1.0/60.0f; //delta constant pour la physique
+    
 
     do {
         // Measure speed
@@ -349,10 +414,19 @@ int main()
         cameraSystem.computeViewProj(registry);
 
 
-        for (int i = 0; i < physicsPrecision; ++i) {
+        if (!paused) {
+            double physicsStartTime = glfwGetTime();
+            for (int i = 0; i < physicsPrecision; ++i) {
+                transformSystem.update(registry); 
+                physicsSystem.update(registry, (physicsStep / (float) physicsPrecision));
+            }
+            double physicsEndTime = glfwGetTime();
+            double physicsDuration = physicsEndTime - physicsStartTime;
+            physicsFrameTime = physicsDuration;
+        } else {
             transformSystem.update(registry); 
-            physicsSystem.update(registry, physicsStep / (float) physicsPrecision);
         }
+        
 
         if (sceneRenderer.isInitialized()) {
             if(!sceneRenderer.render(deltaTime, paused, renderSystem, registry)){
@@ -363,6 +437,11 @@ int main()
 
         //console.addLog("Physics updates: " + to_string(physicsUpdate));
         //physicsUpdate = 0;
+
+        //reset la scene
+        if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) setupScene();
+
+        
 
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -396,7 +475,7 @@ int main()
 
     delete cubeCollider;
 
-    delete testOBBCollider;
+    delete testCollider;
 
     if (heightmapData) {
         stbi_image_free(heightmapData);
@@ -462,11 +541,8 @@ void processInput(GLFWwindow *window, float deltatime, Registry & registry, Rend
         cout << "Switched MVP optimization." << endl;
         timeSinceKeyPressed = 0.0;
     }
-    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && timeSinceKeyPressed >= 1.0f) {
-        if (paused)
-            paused = false;
-        else
-            paused = true;
+    if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS && timeSinceKeyPressed >= 1.0f) {
+        paused = !paused;
         timeSinceKeyPressed = 0;
     }
 
@@ -509,7 +585,7 @@ void processInput(GLFWwindow *window, float deltatime, Registry & registry, Rend
 
             auto& rigidBody = registry.emplace<RigidBodyComponent>(cube);
             rigidBody.mesh = testMesh;
-            rigidBody.colliders.push_back(testOBBCollider);
+            rigidBody.colliders.push_back(testCollider);
         }
 
         timeSinceKeyPressed = 0.0;

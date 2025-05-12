@@ -7,8 +7,8 @@
 
 using namespace std;
 
-const uint32_t MAX_ENTITIES = 1024; //ne pas mettre valeur max uint32 utilser au maximum max(uint32) -1
-const uint32_t INVALID = MAX_ENTITIES - 1; //permet de savoir si un composant est valide (contient un composant pour une certaine entity)
+const uint32_t MAX_ENTITIES = 4096; //ne pas mettre valeur max uint32 utilser au maximum max(uint32) -1
+const uint32_t INVALID = MAX_ENTITIES - 1; //permet de savoir si un composant est valide (cad contient un composant pour une certaine entity)
 
 using Entity = uint32_t;
 

@@ -116,7 +116,7 @@ void CollisionDetection::collision_sphere_sphere(const Entity entityA, const Col
     if (distSquared <= radiusSum * radiusSum) {
         collisionInfo.isColliding = true;
         float dist = sqrt(distSquared);
-        collisionInfo.normal = dist > 0.0f ? diff / dist : vec3(1.0f, 0.0f, 0.0f);
+        collisionInfo.normal = dist > 0.0f ? -diff / dist : vec3(1.0f, 0.0f, 0.0f);
         collisionInfo.penetrationDepth = radiusSum - dist;
         collisionInfo.collisionPointA = centerA + collisionInfo.normal * radiusA;
         collisionInfo.collisionPointB = centerB - collisionInfo.normal * radiusB;
@@ -239,7 +239,7 @@ void CollisionDetection::testCollision(const Entity entityA, const Collider &col
         if (swap) {
             std::swap(collisionInfo.collisionPointA, collisionInfo.collisionPointB);
             std::swap(collisionInfo.localPointA, collisionInfo.localPointB);
-            collisionInfo.normal = -collisionInfo.normal;
+            //collisionInfo.normal = - collisionInfo.normal; //apparemment pas necessaire ?
             std::swap(collisionInfo.entityA, collisionInfo.entityB);
         }
     } else {

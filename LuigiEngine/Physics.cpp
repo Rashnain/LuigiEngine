@@ -15,7 +15,7 @@ void PhysicsSystem::recomputeAABB(Registry& registry){
         RigidBodyComponent& rigidBody = view.get<RigidBodyComponent>(entity);
         Transform& transform = view.get<Transform>(entity);
         
-        vec3 min = transform.getGlobalModel() * vec4(rigidBody.mesh->vertices[0], 1.0f);
+        /* vec3 min = transform.getGlobalModel() * vec4(rigidBody.mesh->vertices[0], 1.0f);
         vec3 max = min;
 
         for(const vec3& vertex : rigidBody.mesh->vertices){
@@ -31,7 +31,53 @@ void PhysicsSystem::recomputeAABB(Registry& registry){
         }
 
         rigidBody.aabbCollider.min = min;
-        rigidBody.aabbCollider.max = max;
+        rigidBody.aabbCollider.max = max; */
+
+        vec3 min = vec3(std::numeric_limits<float>::max());
+        vec3 max = vec3(std::numeric_limits<float>::lowest());
+
+        for(Collider* colptr : rigidBody.colliders){
+
+            const Collider& collider = *colptr;
+
+            if(collider.type == ColliderType::OBB){
+                const OBBCollider& obb = (const OBBCollider&) collider;
+                vec3 vertices[8];
+                obb.getVertices(transform.getPos() + obb.localCentroid, transform.getRight(), transform.getUp(), transform.getFront(),vertices);
+
+                for (const vec3& vertex : vertices) {
+                    min.x = std::min(min.x, vertex.x);
+                    min.y = std::min(min.y, vertex.y);
+                    min.z = std::min(min.z, vertex.z);
+
+                    max.x = std::max(max.x, vertex.x);
+                    max.y = std::max(max.y, vertex.y);
+                    max.z = std::max(max.z, vertex.z);
+                }
+
+                rigidBody.aabbCollider.min = min;
+                rigidBody.aabbCollider.max = max;
+            }else if(collider.type == ColliderType::SPHERE){
+
+                const SphereCollider& sphere = (const SphereCollider&) collider;
+
+                vec3 sphereCenter = transform.getPos() + sphere.localCentroid;
+                float radius = sphere.radius;
+
+                min.x = std::min(min.x, sphereCenter.x - radius);
+                min.y = std::min(min.y, sphereCenter.y - radius);
+                min.z = std::min(min.z, sphereCenter.z - radius);
+
+                max.x = std::max(max.x, sphereCenter.x + radius);
+                max.y = std::max(max.y, sphereCenter.y + radius);
+                max.z = std::max(max.z, sphereCenter.z + radius);
+
+                rigidBody.aabbCollider.min = min;
+                rigidBody.aabbCollider.max = max;
+
+            }
+
+        }
 
     }
 
@@ -61,7 +107,10 @@ void PhysicsSystem::integrate(Registry& registry, float deltaTime){
 
         rigidBody.linearVelocity += gravity * deltaTime;
 
-        transform.addPos(rigidBody.linearVelocity * deltaTime);
+        if(length(rigidBody.linearVelocity) > 0.1){ //permet de limiter les tremblements
+            transform.addPos(rigidBody.linearVelocity * deltaTime);
+        }
+        
 
         rigidBody.forceAccumulator = vec3(0.0f);
         rigidBody.torqueAccumulator = vec3(0.0f);

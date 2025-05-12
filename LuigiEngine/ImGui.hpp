@@ -19,6 +19,10 @@
 
 #include "ECS.h"
 
+extern bool paused;
+extern int physicsPrecision;
+extern float physicsFrameTime;
+
 Entity selectedEntity = INVALID;
 
 
@@ -114,6 +118,7 @@ void renderImGui(Registry & registry) {
             ImGui::DockBuilderDockWindow("Hiérarchie", dock_left_id);
             ImGui::DockBuilderDockWindow("Propriétés", dock_right_id);
             ImGui::DockBuilderDockWindow("Console", dock_bottom_id);
+            ImGui::DockBuilderDockWindow("Scene Control", dock_bottom_id);
             
             ImGui::DockBuilderFinish(dockspace_id);
         }
@@ -215,6 +220,18 @@ void renderImGui(Registry & registry) {
     
     if (ImGui::Begin("Console")) {
         Console::getInstance().displayLogs();
+    }
+    ImGui::End();
+
+    if (ImGui::Begin("Scene Control")) {
+        
+        ImGui::Checkbox("Pause", &paused);
+
+        ImGui::InputInt("Physics Iterations", &physicsPrecision);
+        
+        ImGui::Text("Physics Iteration: %.3f ms", physicsFrameTime / (float)physicsPrecision * 1000.0f);
+        ImGui::Text("Total Physics Time: %.2f ms", physicsFrameTime * 1000.0f);
+
     }
     ImGui::End();
     
