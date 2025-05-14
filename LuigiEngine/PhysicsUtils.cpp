@@ -232,21 +232,20 @@ void CollisionDetection::collision_obb_plane(const Entity entityA, const Collide
     vec3 planePosition = transformB.getGlobalModel() * vec4(plane.localCentroid, 1.0f);
     vec3 planeNormal = normalize(transformB.getGlobalModel() * vec4(plane.normal, 0.0f));
 
-    // le point sur l'obb le plus proche du plan
-    vec3 closestPoint = wobb.globalCentroid;
+    float distance = dot(wobb.globalCentroid - planePosition, planeNormal);
 
+    float projection = 0.0f;
     for (int i = 0; i < 3; ++i) {
-        float projection = dot(-planeNormal, wobb.axes[i]);
-        float clamped = glm::clamp(projection, -wobb.halfSize[i], wobb.halfSize[i]);
-        closestPoint += clamped * wobb.axes[i];
+        projection += abs(dot(wobb.axes[i], planeNormal)) * wobb.halfSize[i];
     }
 
-    float distance = dot(closestPoint - planePosition, planeNormal);
 
-    if (distance < 0) {
+    if (distance <= projection) {
         collisionInfo.isColliding = true;
-        collisionInfo.penetrationDepth = -distance;
+        collisionInfo.penetrationDepth = projection - abs(distance);
         collisionInfo.normal = planeNormal;
+
+        vec3 closestPoint = wobb.globalCentroid - distance * planeNormal;
         collisionInfo.collisionPointA = closestPoint;
         collisionInfo.collisionPointB = closestPoint;
     }
@@ -295,3 +294,24 @@ void CollisionDetection::testCollision(const Entity entityA, const Collider &col
         std::cout << "Pas de fonction de collision definit !!!" << std::endl;
     }
 }                                        
+
+
+void ContactPointDetection::contact_obb_obb(const Entity entityA, const OBBCollider& colliderA, const Transform& transformA, const Entity entityB, const OBBCollider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {
+    // Empty implementation
+}
+
+void ContactPointDetection::contact_sphere_sphere(const Entity entityA, const SphereCollider& colliderA, const Transform& transformA, const Entity entityB, const SphereCollider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {
+    
+}
+
+void ContactPointDetection::contact_sphere_obb(const Entity entityA, const SphereCollider& colliderA, const Transform& transformA, const Entity entityB, const OBBCollider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {
+    // Empty implementation
+}
+
+void ContactPointDetection::contact_obb_plane(const Entity entityA, const OBBCollider& colliderA, const Transform& transformA, const Entity entityB, const PlaneCollider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {
+    // Empty implementation
+}
+
+void ContactPointDetection::contact_sphere_plane(const Entity entityA, const SphereCollider& colliderA, const Transform& transformA, const Entity entityB, const PlaneCollider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {
+    // Empty implementation
+}

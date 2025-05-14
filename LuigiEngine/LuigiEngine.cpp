@@ -151,6 +151,9 @@ MeshComponent testMeshComponent;
 TextureComponent testTextureComponent;
 Collider* testCollider;
 
+SphereCollider* sphereCollider;
+MeshComponent sphereMeshComponent;
+
 static std::mt19937 rng(std::random_device{}());
 static std::uniform_int_distribution<int> distName(0, 9999);
 
@@ -158,19 +161,27 @@ int cubeCount;
 
 void makeBox(Registry& registry, vec3 position, float scale = 1.0f ){
     
-    std::string randomName = "Cube" + std::to_string(cubeCount++);
-    Entity cube = registry.create();
+    std::string randomName = "Object" + std::to_string(cubeCount++);
+    Entity object = registry.create();
 
-    Transform& transform = registry.emplace<Transform>(cube);
+    Transform& transform = registry.emplace<Transform>(object);
     transform.setPos(position);
     transform.setScale(vec3(scale));
-    
-    registry.emplace<TextureComponent>(cube, testTextureComponent);
-    registry.emplace<MeshComponent>(cube, testMeshComponent);
-    registry.emplace<Hierarchy>(cube, std::vector<Entity>{}).name = randomName;
-    auto& rigidBody = registry.emplace<RigidBodyComponent>(cube);
-    rigidBody.mesh = testMesh;
-    rigidBody.addCollider(testCollider);
+
+    if (rng() % 2 == 0) { 
+        registry.emplace<TextureComponent>(object, testTextureComponent);
+        registry.emplace<MeshComponent>(object, testMeshComponent);
+        registry.emplace<Hierarchy>(object, std::vector<Entity>{}).name = randomName;
+        auto& rigidBody = registry.emplace<RigidBodyComponent>(object);
+
+        rigidBody.addCollider(testCollider);
+    } else {
+        registry.emplace<TextureComponent>(object, testTextureComponent);
+        registry.emplace<MeshComponent>(object, sphereMeshComponent);
+        registry.emplace<Hierarchy>(object, std::vector<Entity>{}).name = randomName;
+        auto& rigidBody = registry.emplace<RigidBodyComponent>(object);
+        rigidBody.addCollider(sphereCollider);
+    }
 }
 
 
@@ -278,7 +289,7 @@ int main()
 
     OBBCollider* cubeCollider = new OBBCollider(vec3(1.0f, 1.0f, 1.0f));
 
-    SphereCollider* sphereCollider = new SphereCollider(1.0f);
+    sphereCollider = new SphereCollider(1.0f);
     
     PlaneCollider* planeCollider = new PlaneCollider(vec3(0.0f,1.0f,0.0f));
 
@@ -287,7 +298,7 @@ int main()
 
     MeshComponent cubeMeshComponent = MeshComponent({{0,cubeMesh}}, simpleShaders, {"sun.jpg"}, {"tex"});
 
-    MeshComponent sphereMeshComponent = MeshComponent({{0,sphereLOD1}}, simpleShaders, {"venus.jpg"}, {"tex"});
+    sphereMeshComponent = MeshComponent({{0,sphereLOD1}}, simpleShaders, {"venus.jpg"}, {"tex"});
 
      //testing
     testMesh = new Mesh("models/cube.obj");
@@ -310,7 +321,7 @@ int main()
         
         //entities create and attach comps
 
-        /* Entity terrainEntity = registry.create(); 
+        Entity terrainEntity = registry.create(); 
 
         registry.emplace<Transform>(terrainEntity).setPos(vec3(0,-5,0));
         registry.get<Transform>(terrainEntity).setScale(vec3(40,0.5,40));
@@ -318,12 +329,11 @@ int main()
         registry.emplace<Hierarchy>(terrainEntity, vector<Entity>{}).name = "Terrain";
         auto& body = registry.emplace<RigidBodyComponent>(terrainEntity);
         body.bodyType = PhysicsType::STATIC;
-        body.mesh = cubeMesh;
-        body.addCollider(cubeCollider); */
+        body.addCollider(cubeCollider);
 
         Entity downBorderEntity = registry.create();
 
-        registry.emplace<Transform>(downBorderEntity).setPos(vec3(0,-5,0));
+        registry.emplace<Transform>(downBorderEntity).setPos(vec3(0,-10,0));
         registry.emplace<Hierarchy>(downBorderEntity, vector<Entity>{}).name = "Border";
         auto& body2 = registry.emplace<RigidBodyComponent>(downBorderEntity);
         body2.bodyType = PhysicsType::STATIC;
@@ -355,7 +365,7 @@ int main()
         registry.get<RigidBodyComponent>(sphere2Entity).colliders.push_back(sphereCollider); */
         std::cout << "creating boxes " << std::endl;
 
-        int size = 3;
+        int size = 5;
         double totalTime = 0.0;
         int totalBoxes = size * size * size;
         cubeCount = 0;

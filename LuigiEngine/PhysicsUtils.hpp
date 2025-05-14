@@ -165,4 +165,15 @@ public:
     
 };
 
+class ContactPointDetection{
+
+public:
+
+    static void contact_obb_obb(const Entity entityA, const OBBCollider& colliderA, const Transform& transformA, const Entity entityB, const OBBCollider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo);
+    static void contact_sphere_sphere(const Entity entityA, const SphereCollider& colliderA, const Transform& transformA, const Entity entityB, const SphereCollider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo);
+    static void contact_sphere_obb(const Entity entityA, const SphereCollider& colliderA, const Transform& transformA, const Entity entityB, const OBBCollider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo);
+    static void contact_obb_plane(const Entity entityA, const OBBCollider& colliderA, const Transform& transformA, const Entity entityB, const PlaneCollider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo);
+    static void contact_sphere_plane(const Entity entityA, const SphereCollider& colliderA, const Transform& transformA, const Entity entityB, const PlaneCollider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo);
+};
+
 #endif
