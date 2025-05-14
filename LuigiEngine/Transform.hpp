@@ -34,6 +34,7 @@ public:
 
     void computeLocalModelMatrix();
     mat4 globalModel{1.0f};
+    mat4 inverseGlobalModel{1.0f};
 
     bool isUpToDateLocal() { return upToDateLocal; }
     vec3 getPos() { return localPos; }
@@ -44,6 +45,7 @@ public:
     void addEulerRot(const vec3& vec);
     void setEulerRot(vec3 vec);
     mat4 getRot() { return localRot; }
+    const mat4& getRot() const { return localRot; }
     void setRot(const quat& quatRot);
     vec3 getScale() { return localScale; }
     vec3 getScale() const { return localScale; }
@@ -51,6 +53,8 @@ public:
     void setScale(vec3 vec);
     inline mat4 getGlobalModel() { return globalModel; }
     inline mat4 getGlobalModel() const { return globalModel; }
+    inline mat4 getInverseGlobalModel() { return inverseGlobalModel; }
+    inline mat4 getInverseGlobalModel() const { return inverseGlobalModel; }
     void computeGlobalModelMatrix();
     void computeGlobalModelMatrix(const mat4& parentModel);
 

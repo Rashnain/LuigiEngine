@@ -93,7 +93,7 @@ void TransformSystem::update(Registry & registry) {
 void TransformSystem::computeGlobalTransform(Entity entity, Registry & registry, const glm::mat4 & parentModel) {
     auto& transform = registry.get<Transform>(entity);
     transform.computeGlobalModelMatrix(parentModel);
-
+	transform.inverseGlobalModel = inverse(transform.globalModel);
     if (registry.has<Hierarchy>(entity)) {
         auto & hierarchy = registry.get<Hierarchy>(entity);
         for (Entity child : hierarchy.children) {

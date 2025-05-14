@@ -73,6 +73,7 @@ ivec2 terrainSize{10, 10};
 int physicsPrecision = 2;
 const float physicsStep = 1.0/60.0f; //delta constant pour la physique
 float physicsFrameTime = 0.0f;
+float timeScale = 1.0f;
 
 /*******************************************************************************/
 
@@ -169,7 +170,7 @@ void makeBox(Registry& registry, vec3 position, float scale = 1.0f ){
     registry.emplace<Hierarchy>(cube, std::vector<Entity>{}).name = randomName;
     auto& rigidBody = registry.emplace<RigidBodyComponent>(cube);
     rigidBody.mesh = testMesh;
-    rigidBody.colliders.push_back(testCollider);
+    rigidBody.addCollider(testCollider);
 }
 
 
@@ -286,15 +287,15 @@ int main()
 
     MeshComponent cubeMeshComponent = MeshComponent({{0,cubeMesh}}, simpleShaders, {"sun.jpg"}, {"tex"});
 
-    MeshComponent sphereMeshComponent = MeshComponent({{0,sphereLOD1}}, simpleShaders, {"mercury.jpg"}, {"tex"});
+    MeshComponent sphereMeshComponent = MeshComponent({{0,sphereLOD1}}, simpleShaders, {"venus.jpg"}, {"tex"});
 
      //testing
-    //testMesh = new Mesh("models/cube.obj");
-    testMesh = new Mesh("models/sphereLOD1.obj");
+    testMesh = new Mesh("models/cube.obj");
+    //testMesh = new Mesh("models/sphereLOD1.obj");
     testMeshComponent = MeshComponent({{0,testMesh}}, simpleShaders);
     testTextureComponent = TextureComponent({"sun.jpg"}, {"tex"});
-    //testCollider = new OBBCollider(vec3(1.0f, 1.0f, 1.0f));
-    testCollider = new SphereCollider(1.0f);
+    testCollider = new OBBCollider(vec3(1.0f, 1.0f, 1.0f));
+    //testCollider = new SphereCollider(1.0f);
 
 
     auto setupScene = [&](){
@@ -309,7 +310,7 @@ int main()
         
         //entities create and attach comps
 
-        Entity terrainEntity = registry.create(); 
+        /* Entity terrainEntity = registry.create(); 
 
         registry.emplace<Transform>(terrainEntity).setPos(vec3(0,-5,0));
         registry.get<Transform>(terrainEntity).setScale(vec3(40,0.5,40));
@@ -318,7 +319,15 @@ int main()
         auto& body = registry.emplace<RigidBodyComponent>(terrainEntity);
         body.bodyType = PhysicsType::STATIC;
         body.mesh = cubeMesh;
-        body.colliders.push_back(cubeCollider);
+        body.addCollider(cubeCollider); */
+
+        Entity downBorderEntity = registry.create();
+
+        registry.emplace<Transform>(downBorderEntity).setPos(vec3(0,-5,0));
+        registry.emplace<Hierarchy>(downBorderEntity, vector<Entity>{}).name = "Border";
+        auto& body2 = registry.emplace<RigidBodyComponent>(downBorderEntity);
+        body2.bodyType = PhysicsType::STATIC;
+        body2.addCollider(planeCollider);
 
         /*
         Entity sphere1Entity = registry.create();
@@ -328,14 +337,16 @@ int main()
         registry.emplace<RigidBodyComponent>(sphere1Entity).mesh = sphereLOD1;
         registry.get<RigidBodyComponent>(sphere1Entity).colliders.push_back(sphereCollider);
         //registry.get<RigidBodyComponent>(sphere1Entity).linearVelocity = vec3(3,0,0);
-
-        Entity cube1Entity = registry.create();
+        */
+        /* Entity cube1Entity = registry.create();
         registry.emplace<Transform>(cube1Entity).setPos(vec3(0,0,0));
+        registry.get<Transform>(cube1Entity).setEulerRot(vec3(-1.4,-0.5,-1.5));
         registry.emplace<MeshComponent>(cube1Entity, cubeMeshComponent);
         registry.emplace<Hierarchy>(cube1Entity, vector<Entity>{}).name = "Cube1";
         registry.emplace<RigidBodyComponent>(cube1Entity).mesh = cubeMesh;
-        registry.get<RigidBodyComponent>(cube1Entity).colliders.push_back(cubeCollider);
+        registry.get<RigidBodyComponent>(cube1Entity).colliders.push_back(cubeCollider); */
 
+        /*
         Entity sphere2Entity = registry.create();
         registry.emplace<Transform>(sphere2Entity).setPos(vec3(5,0,0));
         registry.emplace<MeshComponent>(sphere2Entity, sphereMeshComponent);
@@ -343,7 +354,8 @@ int main()
         registry.emplace<RigidBodyComponent>(sphere2Entity).mesh = sphereLOD1;
         registry.get<RigidBodyComponent>(sphere2Entity).colliders.push_back(sphereCollider); */
         std::cout << "creating boxes " << std::endl;
-        int size = 10;
+
+        int size = 3;
         double totalTime = 0.0;
         int totalBoxes = size * size * size;
         cubeCount = 0;
@@ -418,7 +430,7 @@ int main()
             double physicsStartTime = glfwGetTime();
             for (int i = 0; i < physicsPrecision; ++i) {
                 transformSystem.update(registry); 
-                physicsSystem.update(registry, (physicsStep / (float) physicsPrecision));
+                physicsSystem.update(registry, (physicsStep * timeScale / (float) physicsPrecision));
             }
             double physicsEndTime = glfwGetTime();
             double physicsDuration = physicsEndTime - physicsStartTime;
@@ -558,7 +570,7 @@ void processInput(GLFWwindow *window, float deltatime, Registry & registry, Rend
         timeSinceKeyPressed = 0.0;
     }
 
-    if(glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS && timeSinceKeyPressed >= 0.1f){
+    if(glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS && timeSinceKeyPressed >= 0.01f){
 
         static std::mt19937 rng(std::random_device{}());
         static std::uniform_real_distribution<float> distPos(-40.0f, 40.0f);

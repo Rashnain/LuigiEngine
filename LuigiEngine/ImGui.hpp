@@ -22,6 +22,7 @@
 extern bool paused;
 extern int physicsPrecision;
 extern float physicsFrameTime;
+extern float timeScale;
 
 Entity selectedEntity = INVALID;
 
@@ -228,6 +229,7 @@ void renderImGui(Registry & registry) {
         ImGui::Checkbox("Pause", &paused);
 
         ImGui::InputInt("Physics Iterations", &physicsPrecision);
+        ImGui::DragFloat("Time Scale", &timeScale, 0.05, 0.0, 2.0);
         
         ImGui::Text("Physics Iteration: %.3f ms", physicsFrameTime / (float)physicsPrecision * 1000.0f);
         ImGui::Text("Total Physics Time: %.2f ms", physicsFrameTime * 1000.0f);

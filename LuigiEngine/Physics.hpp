@@ -30,7 +30,7 @@ enum class PhysicsType
 struct RigidBodyComponent {
 
     Transform * transform;
-    Mesh * mesh; //le mesh utilisé pour recalculer l'aabb
+    Mesh * mesh; //a enlever
 
     vec3 linearVelocity;
     vec3 angularVelocity;
@@ -81,6 +81,8 @@ struct RigidBodyComponent {
     };
     void onDetach(Registry & registry, Entity entity){};
 
+    void addCollider(Collider* collider);
+
 };
 
 
@@ -90,7 +92,7 @@ class PhysicsSystem  {
     std::vector<std::pair<Entity, Entity>> collisionPairs;
     std::vector<CollisionInfo> collisionList;
 
-    vec3 gravity = vec3(0,-3.0, 0);
+    vec3 gravity = vec3(0,-9.8, 0);
 
     void recomputeAABB(Registry& registry);
 
@@ -104,6 +106,7 @@ class PhysicsSystem  {
 public : 
 
     void update(Registry& registry, float deltaTime );
+    
 
 };
 

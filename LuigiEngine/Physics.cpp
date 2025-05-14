@@ -4,8 +4,39 @@
 #include "LuigiEngine/ImGuiConsole.hpp"
 #include "LuigiEngine/PhysicsUtils.hpp"
 
+void RigidBodyComponent::addCollider(Collider* collider){
+    assert(collider != nullptr);
+    colliders.push_back(collider);
 
-//a modifier pour utiliser la liste de colliders plutot qu'une seule mesh 
+    localCentroid = vec3(0.0f);
+    for(Collider* colptr : colliders){
+        const Collider& col = *colptr;
+
+        localCentroid += col.mass * col.localCentroid;
+
+        mass += col.mass;
+    }
+
+    inverseMass = 1.0f / mass;
+
+    localCentroid *= inverseMass;
+
+    localInertiaTensor = mat3(0.0f);
+
+    for(Collider* colptr : colliders){
+        const Collider& col = *colptr;
+
+        const vec3 r = localCentroid - col.localCentroid;
+        const float rDotR = dot(r,r);
+        const mat3 rOutR = outerProduct(r,r);
+
+        localInertiaTensor += col.localInertiaTensor + col.mass * (rDotR * mat3(1.0f) - rOutR);
+    }
+
+    localInverseInertiaTensor = inverse(localInertiaTensor);
+}
+
+//recalcule l'aabb a partir de la liste des colliders de l'objet
 void PhysicsSystem::recomputeAABB(Registry& registry){
 
     auto view = registry.view<RigidBodyComponent, Transform>();
@@ -14,24 +45,6 @@ void PhysicsSystem::recomputeAABB(Registry& registry){
 
         RigidBodyComponent& rigidBody = view.get<RigidBodyComponent>(entity);
         Transform& transform = view.get<Transform>(entity);
-        
-        /* vec3 min = transform.getGlobalModel() * vec4(rigidBody.mesh->vertices[0], 1.0f);
-        vec3 max = min;
-
-        for(const vec3& vertex : rigidBody.mesh->vertices){
-            vec3 globalVertex = transform.getGlobalModel() * vec4(vertex, 1.0f);
-
-            min.x = std::min(min.x, globalVertex.x);
-            min.y = std::min(min.y, globalVertex.y);
-            min.z = std::min(min.z, globalVertex.z);
-
-            max.x = std::max(max.x, globalVertex.x);
-            max.y = std::max(max.y, globalVertex.y);
-            max.z = std::max(max.z, globalVertex.z);
-        }
-
-        rigidBody.aabbCollider.min = min;
-        rigidBody.aabbCollider.max = max; */
 
         vec3 min = vec3(std::numeric_limits<float>::max());
         vec3 max = vec3(std::numeric_limits<float>::lowest());
@@ -43,7 +56,8 @@ void PhysicsSystem::recomputeAABB(Registry& registry){
             if(collider.type == ColliderType::OBB){
                 const OBBCollider& obb = (const OBBCollider&) collider;
                 vec3 vertices[8];
-                obb.getVertices(transform.getPos() + obb.localCentroid, transform.getRight(), transform.getUp(), transform.getFront(),vertices);
+                vec3 globalPos = transform.getGlobalModel() * vec4(obb.localCentroid,1.0f);
+                obb.getVertices(globalPos, transform.getRight(), transform.getUp(), transform.getFront(),vertices);
 
                 for (const vec3& vertex : vertices) {
                     min.x = std::min(min.x, vertex.x);
@@ -55,25 +69,68 @@ void PhysicsSystem::recomputeAABB(Registry& registry){
                     max.z = std::max(max.z, vertex.z);
                 }
 
-                rigidBody.aabbCollider.min = min;
-                rigidBody.aabbCollider.max = max;
+                float offset = 0.5f; //on veut que l'aabb soit un peu plus grande
+                rigidBody.aabbCollider.min = min - vec3(offset);
+                rigidBody.aabbCollider.max = max + vec3(offset);
             }else if(collider.type == ColliderType::SPHERE){
 
                 const SphereCollider& sphere = (const SphereCollider&) collider;
 
-                vec3 sphereCenter = transform.getPos() + sphere.localCentroid;
-                float radius = sphere.radius;
+                vec3 sphereCenter = transform.getGlobalModel() * vec4(sphere.localCentroid, 1.0f); 
+                float sphereRadius = sphere.radius *transform.getScale().x;
+                min.x = std::min(min.x, sphereCenter.x - sphereRadius);
+                min.y = std::min(min.y, sphereCenter.y - sphereRadius);
+                min.z = std::min(min.z, sphereCenter.z - sphereRadius);
 
-                min.x = std::min(min.x, sphereCenter.x - radius);
-                min.y = std::min(min.y, sphereCenter.y - radius);
-                min.z = std::min(min.z, sphereCenter.z - radius);
-
-                max.x = std::max(max.x, sphereCenter.x + radius);
-                max.y = std::max(max.y, sphereCenter.y + radius);
-                max.z = std::max(max.z, sphereCenter.z + radius);
+                max.x = std::max(max.x, sphereCenter.x + sphereRadius);
+                max.y = std::max(max.y, sphereCenter.y + sphereRadius);
+                max.z = std::max(max.z, sphereCenter.z + sphereRadius);
 
                 rigidBody.aabbCollider.min = min;
                 rigidBody.aabbCollider.max = max;
+
+            }else if(collider.type == ColliderType::PLANE){
+
+                const PlaneCollider& plane = (const PlaneCollider&) collider;
+                vec3 planePosition = transform.getGlobalModel() * vec4(plane.localCentroid, 1.0f);
+                vec3 planeNormal = transform.getGlobalModel() * vec4(plane.normal, 0.0f);
+                planeNormal = normalize(planeNormal);
+
+                vec3 maxValue = vec3(std::numeric_limits<float>::max());
+                vec3 minValue = vec3(std::numeric_limits<float>::lowest());
+
+                auto perpendicular = [&](const vec3& normal){
+                    if(abs(normal.x) <= abs(normal.y) && abs(normal.x) <= abs(normal.z)){
+                        return vec3(0, -normal.z, normal.y);
+                    }else if (abs(normal.y <= abs(normal.z))){
+                        return vec3(-normal.z, 0, normal.x);
+                    }else{
+                        return vec3(-normal.y, normal.x, 0);
+                    }
+                };
+
+                vec3 tangent = normalize(perpendicular(planeNormal));
+                vec3 bitangent = normalize(cross(planeNormal, tangent));
+
+                vec3 corner1 = planePosition + tangent * maxValue + bitangent * maxValue;
+                vec3 corner2 = planePosition + tangent * maxValue + bitangent * minValue;
+                vec3 corner3 = planePosition + tangent * minValue + bitangent * maxValue;
+                vec3 corner4 = planePosition + tangent * minValue + bitangent * minValue;
+
+                vec3 corners[4] = { corner1, corner2, corner3, corner4 };
+
+                for (const vec3& corner : corners) {
+                    min.x = std::min(min.x, corner.x);
+                    min.y = std::min(min.y, corner.y);
+                    min.z = std::min(min.z, corner.z);
+
+                    max.x = std::max(max.x, corner.x);
+                    max.y = std::max(max.y, corner.y);
+                    max.z = std::max(max.z, corner.z);
+                }
+ 
+                 rigidBody.aabbCollider.min = min;
+                 rigidBody.aabbCollider.max = max;
 
             }
 
@@ -107,7 +164,7 @@ void PhysicsSystem::integrate(Registry& registry, float deltaTime){
 
         rigidBody.linearVelocity += gravity * deltaTime;
 
-        if(length(rigidBody.linearVelocity) > 0.1){ //permet de limiter les tremblements
+        if(length(rigidBody.linearVelocity) > 0.01){ //permet de limiter les tremblements
             transform.addPos(rigidBody.linearVelocity * deltaTime);
         }
         
@@ -145,9 +202,11 @@ void PhysicsSystem::broadCollisionDetection(Registry& registry){
                                rigidBodyA.aabbCollider.max.z >= rigidBodyB.aabbCollider.min.z;
 
             if (collisionX && collisionY && collisionZ) {
-                //Console::getInstance().addLog("broad phase collision e " + std::to_string(entityA) + " e " + std::to_string(entityB));
+                Console::getInstance().addLog("broad phase collision e " + std::to_string(entityA) + " e " + std::to_string(entityB));
 
                 narrowCollisionDetection(entityA, rigidBodyA, transformA,entityB, rigidBodyB, transformB);
+            }else{
+                Console::getInstance().addLog("no Collision");
             }
 
 
