@@ -168,20 +168,56 @@ void makeBox(Registry& registry, vec3 position, float scale = 1.0f ){
     transform.setPos(position);
     transform.setScale(vec3(scale));
 
-    if (rng() % 2 == 0) { 
-        registry.emplace<TextureComponent>(object, testTextureComponent);
-        registry.emplace<MeshComponent>(object, testMeshComponent);
-        registry.emplace<Hierarchy>(object, std::vector<Entity>{}).name = randomName;
-        auto& rigidBody = registry.emplace<RigidBodyComponent>(object);
+    registry.emplace<TextureComponent>(object, testTextureComponent);
+    registry.emplace<MeshComponent>(object, testMeshComponent);
+    registry.emplace<Hierarchy>(object, std::vector<Entity>{}).name = randomName;
+    auto& rigidBody = registry.emplace<RigidBodyComponent>(object);
 
-        rigidBody.addCollider(testCollider);
-    } else {
-        registry.emplace<TextureComponent>(object, testTextureComponent);
-        registry.emplace<MeshComponent>(object, sphereMeshComponent);
-        registry.emplace<Hierarchy>(object, std::vector<Entity>{}).name = randomName;
-        auto& rigidBody = registry.emplace<RigidBodyComponent>(object);
+    rigidBody.addCollider(testCollider);
+}
+
+void spawnRandom(Registry& registry, vec3 position){
+
+    std::uniform_real_distribution<float> distPos(-10.0f, 10.0f);
+    std::uniform_real_distribution<float> distScale(0.5f, 2.0f);
+    std::uniform_int_distribution<int> distShape(0, 2); // 0: cube, 1: sphere, 2: cylinder
+
+    vec3 randomPosition(distPos(rng), distPos(rng), distPos(rng));
+    float randomScale = distScale(rng);
+
+    int shapeType = distShape(rng);
+    if (shapeType == 0) {
+        makeBox(registry, randomPosition, randomScale);
+    } else if (shapeType == 1) {
+        std::string randomName = "Sphere" + std::to_string(cubeCount++);
+        Entity sphere = registry.create();
+
+        Transform& transform = registry.emplace<Transform>(sphere);
+        transform.setPos(randomPosition);
+        transform.setScale(vec3(randomScale));
+
+        registry.emplace<TextureComponent>(sphere, testTextureComponent);
+        registry.emplace<MeshComponent>(sphere, sphereMeshComponent);
+        registry.emplace<Hierarchy>(sphere, std::vector<Entity>{}).name = randomName;
+        auto& rigidBody = registry.emplace<RigidBodyComponent>(sphere);
+
         rigidBody.addCollider(sphereCollider);
+    } else if (shapeType == 2) {
+        std::string randomName = "Cylinder" + std::to_string(cubeCount++);
+        Entity cylinder = registry.create();
+
+        Transform& transform = registry.emplace<Transform>(cylinder);
+        transform.setPos(randomPosition);
+        transform.setScale(vec3(randomScale));
+
+        registry.emplace<TextureComponent>(cylinder, testTextureComponent);
+        registry.emplace<MeshComponent>(cylinder, MeshComponent({{0, new Mesh("models/cylinder.obj")}}, simpleShaders));
+        registry.emplace<Hierarchy>(cylinder, std::vector<Entity>{}).name = randomName;
+        auto& rigidBody = registry.emplace<RigidBodyComponent>(cylinder);
+
+        rigidBody.addCollider(new CylinderCollider(0.95f, 1.4f));
     }
+
 }
 
 
@@ -280,6 +316,8 @@ int main()
     createFlatTerrain(glm::vec2(2,2), glm::vec2(20,20), terrainMesh->vertices, terrainMesh->triangles, terrainMesh->uvs);
 
     Mesh* cubeMesh = new Mesh("models/cube.obj");
+
+    Mesh* cylinderMesh = new Mesh("models/cylinder.obj");
     //makeCubeMesh(cubeMesh->vertices, cubeMesh->normals, cubeMesh->uvs, cubeMesh->triangles);
 
     /* quand on cree une mesh attache automatiquement un TextureComponent
@@ -293,12 +331,18 @@ int main()
     
     PlaneCollider* planeCollider = new PlaneCollider(vec3(0.0f,1.0f,0.0f));
 
+    CylinderCollider* cylinderCollider = new CylinderCollider(0.95f,1.4f);
+
     //MeshComponent setup
     MeshComponent terrainMeshComponent = MeshComponent({{0,cubeMesh}}, simpleShaders, {"moon.jpg"}, {"tex"});
 
     MeshComponent cubeMeshComponent = MeshComponent({{0,cubeMesh}}, simpleShaders, {"sun.jpg"}, {"tex"});
 
     sphereMeshComponent = MeshComponent({{0,sphereLOD1}}, simpleShaders, {"venus.jpg"}, {"tex"});
+
+    MeshComponent cylinderMeshComponent({{0, cylinderMesh}}, simpleShaders);
+
+    TextureComponent snowRockTextureComponent = TextureComponent({"snowrock.png"}, {"tex"});
 
      //testing
     testMesh = new Mesh("models/cube.obj");
@@ -339,22 +383,32 @@ int main()
         body2.bodyType = PhysicsType::STATIC;
         body2.addCollider(planeCollider);
 
-        /*
+        Entity cylinderEntity = registry.create();
+
+        registry.emplace<Transform>(cylinderEntity).setPos(vec3(0, 0, 0));
+        registry.get<Transform>(cylinderEntity).setScale(vec3(1.0f, 0.5f, 1.0f));
+        registry.get<Transform>(cylinderEntity).setRot(glm::rotate(mat4(1.0f), glm::half_pi<float>() * 1.3f, vec3(0.0f, 0.0f, 1.0f)));
+        registry.emplace<TextureComponent>(cylinderEntity,snowRockTextureComponent);
+        registry.emplace<MeshComponent>(cylinderEntity, cylinderMeshComponent);
+        registry.emplace<Hierarchy>(cylinderEntity, vector<Entity>{}).name = "Cylinder";
+        auto& cylinderBody = registry.emplace<RigidBodyComponent>(cylinderEntity);
+        cylinderBody.addCollider(cylinderCollider);
+
+        
         Entity sphere1Entity = registry.create();
-        registry.emplace<Transform>(sphere1Entity).setPos(vec3(-5,0,0));
+        registry.emplace<Transform>(sphere1Entity).setPos(vec3(-3,0,0));
         registry.emplace<MeshComponent>(sphere1Entity, sphereMeshComponent);
         registry.emplace<Hierarchy>(sphere1Entity, vector<Entity>{}).name = "Sphere1";
         registry.emplace<RigidBodyComponent>(sphere1Entity).mesh = sphereLOD1;
-        registry.get<RigidBodyComponent>(sphere1Entity).colliders.push_back(sphereCollider);
+        registry.get<RigidBodyComponent>(sphere1Entity).addCollider(sphereCollider);
         //registry.get<RigidBodyComponent>(sphere1Entity).linearVelocity = vec3(3,0,0);
-        */
-        /* Entity cube1Entity = registry.create();
-        registry.emplace<Transform>(cube1Entity).setPos(vec3(0,0,0));
-        registry.get<Transform>(cube1Entity).setEulerRot(vec3(-1.4,-0.5,-1.5));
+        
+        Entity cube1Entity = registry.create();
+        registry.emplace<Transform>(cube1Entity).setPos(vec3(3,0,0));
+
         registry.emplace<MeshComponent>(cube1Entity, cubeMeshComponent);
         registry.emplace<Hierarchy>(cube1Entity, vector<Entity>{}).name = "Cube1";
-        registry.emplace<RigidBodyComponent>(cube1Entity).mesh = cubeMesh;
-        registry.get<RigidBodyComponent>(cube1Entity).colliders.push_back(cubeCollider); */
+        registry.emplace<RigidBodyComponent>(cube1Entity).addCollider(cubeCollider);
 
         /*
         Entity sphere2Entity = registry.create();
@@ -375,7 +429,8 @@ int main()
             for (int y = 0; y < size; ++y) {
                 for (int z = 0; z < size; ++z) {
                     double startTime = glfwGetTime();
-                    makeBox(registry, vec3(x * scale * 2, y * scale * 2, z * scale *2), scale);
+                    //makeBox(registry, vec3(x * scale * 2, y * scale * 2, z * scale *2), scale);
+                    //spawnRandom(registry, vec3(x * scale * 2, y * scale * 2, z * scale *2));
                     double endTime = glfwGetTime();
                     double boxTime = endTime - startTime;
                     totalTime += boxTime;

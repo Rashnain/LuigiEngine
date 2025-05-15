@@ -28,9 +28,9 @@ void getWorldOBB(const OBBCollider& collider, const Transform& transform, WorldO
 
     worldOBB.globalCentroid = newModel * vec4(collider.localCentroid, 1.0f);
 
-    worldOBB.axes[0] = glm::normalize(glm::vec3(newModel[0]));
-    worldOBB.axes[1] = glm::normalize(glm::vec3(newModel[1]));
-    worldOBB.axes[2] = glm::normalize(glm::vec3(newModel[2]));
+    worldOBB.axes[0] = normalize(vec3(newModel[0]));
+    worldOBB.axes[1] = normalize(vec3(newModel[1]));
+    worldOBB.axes[2] = normalize(vec3(newModel[2]));
     
     worldOBB.halfSize = collider.halfSize * transform.getScale();
 }
@@ -50,7 +50,7 @@ void CollisionDetection::collision_obb_obb(const Entity entityA, const Collider&
     getWorldOBB(obbA, transformA, wobbA);
     getWorldOBB(obbB, transformB, wobbB);
 
-    float minOverlap = std::numeric_limits<float>::max();
+    float minOverlap = numeric_limits<float>::max();
     vec3 minAxis;
 
     //fonction lambda pour tester un axe, algo SAT
@@ -106,8 +106,8 @@ void CollisionDetection::collision_sphere_sphere(const Entity entityA, const Col
     vec3 centerA = vec3(transformA.getGlobalModel() * vec4(sphereA.localCentroid, 1.0f));
     vec3 centerB = vec3(transformB.getGlobalModel() * vec4(sphereB.localCentroid, 1.0f));
 
-    float radiusA = sphereA.radius * glm::max(glm::max(transformA.getScale().x, transformA.getScale().y), transformA.getScale().z);
-    float radiusB = sphereB.radius * glm::max(glm::max(transformB.getScale().x, transformB.getScale().y), transformB.getScale().z);
+    float radiusA = sphereA.radius * std::max(std::max(transformA.getScale().x, transformA.getScale().y), transformA.getScale().z);
+    float radiusB = sphereB.radius * std::max(std::max(transformB.getScale().x, transformB.getScale().y), transformB.getScale().z);
 
     vec3 diff = centerB - centerA;
     float distSquared = dot(diff, diff);
@@ -124,7 +124,61 @@ void CollisionDetection::collision_sphere_sphere(const Entity entityA, const Col
 }
 
 void CollisionDetection::collision_sphere_cylinder(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB, const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {
-    // Empty implementation
+    const SphereCollider& sphere = (const SphereCollider&)colliderA;
+    const CylinderCollider& cylinder = (const CylinderCollider&)colliderB;
+
+    vec3 sphereCenter = transformA.getGlobalModel() * vec4(sphere.localCentroid, 1.0f); 
+    float sphereRadius = sphere.radius * std::max(std::max(transformA.getScale().x, transformA.getScale().y), transformA.getScale().z);
+ 
+    vec3 cylinderPos = transformB.getGlobalModel() * vec4(cylinder.localCentroid, 1.0f);
+    vec3 cylinderAxis = normalize(transformB.getGlobalModel() * vec4(cylinder.axis, 0.0f));
+    float cylinderRadius = cylinder.radius * transformB.getScale().x;
+    float cylinderHeight = cylinder.halfSize * std::min(std::min(transformB.getScale().x, transformB.getScale().y), transformB.getScale().z);
+
+    vec3 axis = sphereCenter - cylinderPos;
+    float t = dot(axis, cylinderAxis);
+
+    vec3 radial = axis - t * cylinderAxis;
+    float radialDist = length(radial);
+
+    float axialOff = abs(t) - cylinderHeight;
+    float radialOff = radialDist - cylinderRadius;
+
+    float dist;
+    vec3 normal;
+
+    //cote du cylindre
+    if (axialOff <= 0.0f && radialOff <= 0.0f) {
+        dist = fabs(radialOff);
+        normal = (radialDist > 1e-6f ? radial / radialDist : vec3(1.0f, 0.0f, 0.0f));
+    } else if (axialOff > 0.0f && radialOff <= 0.0f) {//face plane du cylindre
+        dist = axialOff;
+        normal = (t > 0.0f ? cylinderAxis : -cylinderAxis);
+    } else {//sur un coin
+        dist = sqrt(axialOff*axialOff + radialOff*radialOff);
+        vec3 dirRadial = (radialDist > 1e-6f ? radial / radialDist : vec3(1.0f, 0.0f, 0.0f));
+        vec3 rimDir = normalize(dirRadial * cylinderRadius + (t > 0.0f ? cylinderAxis : -cylinderAxis) * cylinderHeight);
+        normal = rimDir;
+    }
+
+
+    float penetration = sphereRadius - dist;
+    if (penetration > 0.0f) {
+        collisionInfo.isColliding = true;
+        collisionInfo.normal = normal;
+        collisionInfo.penetrationDepth = penetration;
+        collisionInfo.collisionPointA = sphereCenter - normal * sphereRadius;
+
+        if (axialOff <= 0.0f) {
+            vec3 sidePoint = cylinderPos + t * cylinderAxis + normal * cylinderRadius;
+            collisionInfo.collisionPointB = sidePoint;
+        } else {
+            vec3 capCenter = cylinderPos + (t > 0.0f ? cylinderAxis : -cylinderAxis) * cylinderHeight;
+            collisionInfo.collisionPointB = capCenter + normal * cylinderRadius;
+        }
+    }
+
+    
 }
 
 void CollisionDetection::collision_sphere_aabb(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB, const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {
@@ -138,7 +192,7 @@ void CollisionDetection::collision_sphere_obb(const Entity entityA, const Collid
     const OBBCollider& obb = (const OBBCollider&) colliderB;
 
     vec3 sphereCenter = transformA.getGlobalModel() * vec4(sphere.localCentroid, 1.0f); 
-    float sphereRadius = sphere.radius * glm::max(glm::max(transformA.getScale().x, transformA.getScale().y), transformA.getScale().z);
+    float sphereRadius = sphere.radius * std::max(std::max(transformA.getScale().x, transformA.getScale().y), transformA.getScale().z);
 
     WorldOBB wobb;
     getWorldOBB(obb, transformB, wobb);
@@ -202,7 +256,71 @@ void CollisionDetection::collision_cylinder_aabb(const Entity entityA, const Col
 }
 
 void CollisionDetection::collision_cylinder_obb(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB, const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {
-    // Empty implementation
+    collisionInfo.isColliding = false;
+
+    const CylinderCollider& cylinder = (const CylinderCollider&) colliderA;
+    const OBBCollider& obb = (const OBBCollider&) colliderB;
+
+    vec3 cylinderPos = transformA.getGlobalModel() * vec4(cylinder.localCentroid, 1.0f);
+    vec3 cylinderAxis = normalize(transformA.getGlobalModel() * vec4(cylinder.axis, 0.0f));
+    float cylinderRadius = cylinder.radius * transformA.getScale().x;
+    float cylinderHeight = cylinder.halfSize * std::min(std::min(transformA.getScale().x, transformA.getScale().y), transformA.getScale().z);
+
+    WorldOBB wobb;
+    getWorldOBB(obb, transformB, wobb);
+
+    vec3 start = cylinderPos + cylinderAxis * cylinderHeight;
+    vec3 end = cylinderPos - cylinderAxis * cylinderHeight;
+
+    float minOverlap = numeric_limits<float>::max();
+    vec3 minAxis;
+
+    auto testOverlap = [&](const vec3& axis){ //penser a normaliser l'axe
+        //float projCylinder = abs(dot(axis, cylinderAxis)) * cylinderHeight + cylinderRadius;
+        float projOBB = abs(dot(axis, wobb.axes[0])) * wobb.halfSize.x + abs(dot(axis, wobb.axes[1])) * wobb.halfSize.y + abs(dot(axis, wobb.axes[2])) * wobb.halfSize.z;
+
+        //besoin de faire ca sinon le cylindre agit comme une capsule
+
+        float d = dot(axis,cylinderAxis);
+        
+        float projHeight = cylinderHeight * abs(d);
+        float projRadius = cylinderRadius * sqrt(std::max(0.0f,1.0f - abs(d)*abs(d))); //chatgpt
+        
+        float projCylinder = projHeight + projRadius;
+
+        float dist = abs(dot(wobb.globalCentroid - cylinderPos, axis));
+
+        float overlap = projCylinder + projOBB - dist;
+
+        if (overlap < 0) return false;
+
+        if (overlap < minOverlap) {
+            minOverlap = overlap;
+
+            if (dot(wobb.globalCentroid - cylinderPos,axis) < 0) {
+                minAxis = axis;
+            } else {
+                minAxis = -axis;
+            }
+        }
+
+        return true;
+    };
+
+        if (!testOverlap(cylinderAxis)) {return;} //axe du cylindre   
+        for (int i = 0; i < 3; ++i) {if (!testOverlap(wobb.axes[i])) return;} //les axes de l'obb
+
+        //cross product de tous les axes precedents
+        for (int i = 0; i < 3; ++i) {
+            vec3 newAxis = normalize(cross(cylinderAxis, wobb.axes[i]));
+            if ( !testOverlap(newAxis)) return;
+        }
+
+        collisionInfo.isColliding = true;
+        collisionInfo.normal = minAxis;
+        collisionInfo.penetrationDepth = minOverlap;
+
+
 }
 
 void CollisionDetection::collision_cylinder_plane(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB, const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {

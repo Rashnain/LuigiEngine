@@ -132,6 +132,32 @@ void PhysicsSystem::recomputeAABB(Registry& registry){
                  rigidBody.aabbCollider.min = min;
                  rigidBody.aabbCollider.max = max;
 
+            }else if(collider.type == ColliderType::CYLINDER){
+
+                const CylinderCollider& cylinderCollider = (const CylinderCollider&) collider;
+
+                vec3 worldAxis = transform.getGlobalModel() * vec4(cylinderCollider.axis,0.0f);
+                worldAxis = normalize(worldAxis);
+                vec3 worldPos = transform.getGlobalModel() * vec4(cylinderCollider.localCentroid, 1.0f);
+                float worldRadius = cylinderCollider.radius * std::max(std::max(transform.getScale().x, transform.getScale().y), transform.getScale().z);
+                float worldHeight = cylinderCollider.halfSize * std::max(std::max(transform.getScale().x, transform.getScale().y), transform.getScale().z);
+
+                vec3 start = worldPos + worldAxis * worldHeight;
+                vec3 end = worldPos - worldAxis * worldHeight;
+
+                min.x = std::min(start.x, end.x) - worldRadius;
+                min.y = std::min(min.y, std::min(start.y, end.y) - worldRadius);
+                min.z = std::min(min.z, std::min(start.z, end.z) - worldRadius);
+
+                max.x = std::max(max.x, std::max(start.x, end.x) + worldRadius);
+                max.y = std::max(max.y, std::max(start.y, end.y) + worldRadius);
+                max.z = std::max(max.z, std::max(start.z, end.z) + worldRadius);
+
+                rigidBody.aabbCollider.min = min;
+                rigidBody.aabbCollider.max = max;
+
+
+
             }
 
         }
@@ -148,6 +174,12 @@ void PhysicsSystem::integrate(Registry& registry, float deltaTime){
 
         RigidBodyComponent& rigidBody = view.get<RigidBodyComponent>(entity);
         Transform& transform = view.get<Transform>(entity);
+
+        //-----
+        mat3 rotation = mat3(transform.getRot());
+        rigidBody.globalInverseInertiaTensor = rotation * rigidBody.localInverseInertiaTensor * transpose(rotation);         
+        rigidBody.globalCentroid = transform.getGlobalModel() * vec4(rigidBody.localCentroid, 1.0f);
+        //-----
         
         if(rigidBody.isPaused) continue;
 
@@ -158,14 +190,26 @@ void PhysicsSystem::integrate(Registry& registry, float deltaTime){
         }
 
         rigidBody.linearVelocity *= (1.0f - rigidBody.linearDamping * deltaTime);
-
         vec3 acceleration = rigidBody.forceAccumulator * rigidBody.inverseMass;
         rigidBody.linearVelocity += acceleration * deltaTime;
-
         rigidBody.linearVelocity += gravity * deltaTime;
 
         if(length(rigidBody.linearVelocity) > 0.01){ //permet de limiter les tremblements
             transform.addPos(rigidBody.linearVelocity * deltaTime);
+        }
+
+        vec3 angularAcceleration = rigidBody.globalInverseInertiaTensor * rigidBody.torqueAccumulator;
+        rigidBody.angularVelocity *= (1.0f - rigidBody.angularDamping * deltaTime);
+        rigidBody.angularVelocity += angularAcceleration * deltaTime;
+
+        if (length(rigidBody.angularVelocity) > 0.01f) {
+            //continue;
+            float angle = length(rigidBody.angularVelocity) * deltaTime;
+            vec3 axis = normalize(rigidBody.angularVelocity);
+            quat deltaRotation = angleAxis(angle, axis);
+            quat currentRotation = transform.getRot();
+            quat newRotation = currentRotation * deltaRotation;
+            transform.setRot(normalize(newRotation));
         }
         
 
@@ -202,11 +246,11 @@ void PhysicsSystem::broadCollisionDetection(Registry& registry){
                                rigidBodyA.aabbCollider.max.z >= rigidBodyB.aabbCollider.min.z;
 
             if (collisionX && collisionY && collisionZ) {
-                Console::getInstance().addLog("broad phase collision e " + std::to_string(entityA) + " e " + std::to_string(entityB));
+                //Console::getInstance().addLog("broad phase collision e " + std::to_string(entityA) + " e " + std::to_string(entityB));
 
                 narrowCollisionDetection(entityA, rigidBodyA, transformA,entityB, rigidBodyB, transformB);
             }else{
-                Console::getInstance().addLog("no Collision");
+                //Console::getInstance().addLog("no Collision");
             }
 
 
@@ -284,6 +328,32 @@ void PhysicsSystem::collisionResolution(Registry& registry){
             rigidBodyB.linearVelocity += impulse * rigidBodyB.inverseMass;
         }
 
+
+        //rotation
+        Console::getInstance().addLog("rotation ");
+
+        if(rigidBodyA.bodyType != PhysicsType::STATIC){
+            vec3 rA = collision.localPointA - rigidBodyA.localCentroid;
+            vec3 angularImpulse = cross(rA, impulse);
+
+            rigidBodyA.angularVelocity += angularImpulse * rigidBodyA.globalInverseInertiaTensor / 2.0f;
+            Console::getInstance().addLog("Entity A: " + registry.get<Hierarchy>(collision.entityA).name);
+            Console::getInstance().addLog("localPointA: (" + std::to_string(collision.localPointA.x) + ", " + std::to_string(collision.localPointA.y) + ", " + std::to_string(collision.localPointA.z) + ")");
+            Console::getInstance().addLog("col pointA: (" + std::to_string(collision.collisionPointA.x) + ", " + std::to_string(collision.collisionPointA.y) + ", " + std::to_string(collision.collisionPointA.z) + ")");
+            Console::getInstance().addLog("Collision Normal: (" + std::to_string(collision.normal.x) + ", " + std::to_string(collision.normal.y) + ", " + std::to_string(collision.normal.z) + ")");
+            Console::getInstance().addLog("Impulse: (" + std::to_string(impulse.x) + ", " + std::to_string(impulse.y) + ", " + std::to_string(impulse.z) + ")");
+            Console::getInstance().addLog("Angular Impulse: (" + std::to_string(angularImpulse.x) + ", " + std::to_string(angularImpulse.y) + ", " + std::to_string(angularImpulse.z) + ")");
+            Console::getInstance().addLog("rA: (" + std::to_string(rA.x) + ", " + std::to_string(rA.y) + ", " + std::to_string(rA.z) + ")");
+            
+        }
+
+        if(rigidBodyB.bodyType != PhysicsType::STATIC){
+            vec3 rB = collision.localPointB - rigidBodyB.localCentroid;
+            vec3 angularImpulse = cross(rB, impulse);
+
+            rigidBodyB.angularVelocity += angularImpulse * rigidBodyB.globalInverseInertiaTensor / 2.0f;
+
+        }
 
 
     }

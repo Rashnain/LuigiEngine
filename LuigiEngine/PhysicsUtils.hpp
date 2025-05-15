@@ -61,10 +61,10 @@ struct SphereCollider : public Collider {
 
 struct CylinderCollider : public Collider {
     float radius;
-    float height;
-    vec3 axis = vec3(0.0,1.0,0.0);
+    float halfSize;
+    vec3 axis;
 
-    CylinderCollider(float r, float h) : radius(r), height(h) {
+    CylinderCollider(float radius, float halfSize, vec3 direction = vec3(0.0,1.0,0.0)) : radius(radius), halfSize(halfSize), axis(direction) {
         type = ColliderType::CYLINDER;
     }
 };
