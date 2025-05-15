@@ -42,7 +42,7 @@ enum class ColliderType
 
 struct Collider {
     ColliderType type;
-    float mass = 1.0f;
+    float mass = 100.0f;
     mat3 localInertiaTensor;
     vec3 localCentroid = vec3(0.0f);
 
@@ -57,6 +57,13 @@ struct SphereCollider : public Collider {
     SphereCollider(float r) : radius(r) {
         type = ColliderType::SPHERE;
     }
+
+    void computeInertiaTensor() {
+        float I = (2.0f / 5.0f) * mass * radius * radius;
+        localInertiaTensor = mat3(I, 0.0f, 0.0f,
+                                  0.0f, I, 0.0f,
+                                  0.0f, 0.0f, I);
+    }
 };
 
 struct CylinderCollider : public Collider {
@@ -66,6 +73,16 @@ struct CylinderCollider : public Collider {
 
     CylinderCollider(float radius, float halfSize, vec3 direction = vec3(0.0,1.0,0.0)) : radius(radius), halfSize(halfSize), axis(direction) {
         type = ColliderType::CYLINDER;
+        computeInertiaTensor();
+    }
+
+    void computeInertiaTensor() {
+        float Ix = (1.0f / 12.0f) * mass * (3 *radius*radius + 4 *halfSize * halfSize);
+        float Iy = 0.5f * mass * radius * radius;
+        float Iz = Ix;
+        localInertiaTensor = mat3(Ix, 0.0f, 0.0f,
+                                  0.0f, Iy, 0.0f,
+                                  0.0f, 0.0f, Iz);
     }
 };
 
@@ -87,6 +104,7 @@ struct OBBCollider : public Collider {
     OBBCollider(const vec3& halfSize) : halfSize(halfSize){
         type = ColliderType::OBB;
         rotation = vec3(0.0f);
+        computeInertiaTensor();
     }
 
     //un peu moche mais c'est le mieux
@@ -99,6 +117,20 @@ struct OBBCollider : public Collider {
         vertices[5] = center - right * halfSize.x + up * halfSize.y - front * halfSize.z;
         vertices[6] = center - right * halfSize.x - up * halfSize.y + front * halfSize.z;
         vertices[7] = center - right * halfSize.x - up * halfSize.y - front * halfSize.z;
+    }
+
+    void computeInertiaTensor() {
+        float w = 2.0f * halfSize.x;
+        float h = 2.0f * halfSize.y;
+        float d = 2.0f * halfSize.z;
+
+        float Ix = (1.0f/12.0f) * mass * (h * h + d * d);
+        float Iy = (1.0f/12.0f)* mass * (w * w + d * d);
+        float Iz = (1.0f/12.0f) * mass * (w * w +h * h);
+
+        localInertiaTensor = mat3(Ix, 0.0f, 0.0f,
+                                  0.0f, Iy, 0.0f,
+                                  0.0f, 0.0f, Iz);
     }
 
 };

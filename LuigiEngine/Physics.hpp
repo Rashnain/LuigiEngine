@@ -59,7 +59,8 @@ struct RigidBodyComponent {
     float linearDamping = 0.0f;
     float angularDamping = 0.0f;
 
-    float restitution = 1.0f;
+    float restitution = 0.5f;
+    float friction = 1.0f;
 
     RigidBodyComponent(){
         mass = 1.0f;
@@ -94,6 +95,8 @@ class PhysicsSystem  {
 
     vec3 gravity = vec3(0,-9.8, 0);
 
+    float deltaTime = 1.0f/60.0f;
+
     void recomputeAABB(Registry& registry);
 
     void integrate(Registry& registry, float deltaTime);
@@ -107,6 +110,7 @@ public :
 
     void update(Registry& registry, float deltaTime );
     
+    vector<CollisionInfo> getCollisionList(){return collisionList;}
 
 };
 

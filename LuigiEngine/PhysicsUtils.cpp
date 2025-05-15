@@ -100,6 +100,8 @@ void CollisionDetection::collision_obb_obb(const Entity entityA, const Collider&
 void CollisionDetection::collision_sphere_sphere(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB, const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {
     collisionInfo.isColliding = false;
 
+    //std::cout << entityA << " and " << entityB << std::endl;
+
     const SphereCollider& sphereA = (const SphereCollider&) colliderA;
     const SphereCollider& sphereB = (const SphereCollider&) colliderB;
 
@@ -118,8 +120,8 @@ void CollisionDetection::collision_sphere_sphere(const Entity entityA, const Col
         float dist = sqrt(distSquared);
         collisionInfo.normal = dist > 0.0f ? -diff / dist : vec3(1.0f, 0.0f, 0.0f);
         collisionInfo.penetrationDepth = radiusSum - dist;
-        collisionInfo.collisionPointA = centerA + collisionInfo.normal * radiusA;
-        collisionInfo.collisionPointB = centerB - collisionInfo.normal * radiusB;
+        collisionInfo.collisionPointA = centerA + diff / dist * radiusA;
+        collisionInfo.collisionPointB = centerB - diff / dist * radiusB;
     }
 }
 

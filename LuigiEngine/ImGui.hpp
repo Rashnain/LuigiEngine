@@ -139,8 +139,10 @@ void renderImGui(Registry & registry) {
             ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
             if (selectedEntity == e)
                 node_flags |= ImGuiTreeNodeFlags_Selected;
+
+            string name = h.name + " " + to_string(e);
     
-            bool open = ImGui::TreeNodeEx(h.name.c_str(), node_flags);
+            bool open = ImGui::TreeNodeEx(name.c_str(), node_flags);
             if (ImGui::IsItemClicked()) {
                 selectedEntity = e;
             }
@@ -198,7 +200,7 @@ void renderImGui(Registry & registry) {
                 if (ImGui::DragFloat("##Scale", &scale, 0.1f)) {
                     transform.setScale(vec3(scale));
                 }   
-                }
+                
 
                 if (registry.has<RigidBodyComponent>(selectedEntity)) {
                     RigidBodyComponent& rigidBody = registry.get<RigidBodyComponent>(selectedEntity);
@@ -206,6 +208,11 @@ void renderImGui(Registry & registry) {
                     ImGui::DragFloat3("##Linear Velocity", &rigidBody.linearVelocity.x, 0.1f);
                     ImGui::Text("Angular Velocity");
                     ImGui::DragFloat3("##Angular Velocity", &rigidBody.angularVelocity.x, 0.1f);
+                    if (ImGui::Button("Reset")) {
+                        rigidBody.linearVelocity = vec3(0.0f);
+                        rigidBody.angularVelocity = vec3(0.0f);
+                        transform.setRot(glm::mat4(1.0f));  
+                    }
                     ImGui::Text("Mass");
                     if (ImGui::DragFloat("##Mass", &rigidBody.mass, 0.1f, 0.1f, 1000.0f)) {
                         rigidBody.mass = std::max(0.1f, rigidBody.mass);
@@ -216,6 +223,7 @@ void renderImGui(Registry & registry) {
                     ImGui::Text("AABB max: %.2f, %.2f, %.2f", rigidBody.aabbCollider.max.x, rigidBody.aabbCollider.max.y, rigidBody.aabbCollider.max.z);
                 }   
             }
+        }
     }
     ImGui::End();
     

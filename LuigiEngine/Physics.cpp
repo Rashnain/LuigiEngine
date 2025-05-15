@@ -202,7 +202,7 @@ void PhysicsSystem::integrate(Registry& registry, float deltaTime){
         rigidBody.angularVelocity *= (1.0f - rigidBody.angularDamping * deltaTime);
         rigidBody.angularVelocity += angularAcceleration * deltaTime;
 
-        if (length(rigidBody.angularVelocity) > 0.01f) {
+        if (length(rigidBody.angularVelocity) > 0.00f) {
             //continue;
             float angle = length(rigidBody.angularVelocity) * deltaTime;
             vec3 axis = normalize(rigidBody.angularVelocity);
@@ -221,6 +221,8 @@ void PhysicsSystem::integrate(Registry& registry, float deltaTime){
 
 //utilise les aabb classique
 void PhysicsSystem::broadCollisionDetection(Registry& registry){
+
+    collisionList.clear();
 
     auto view = registry.view<RigidBodyComponent, Transform>();
 
@@ -284,16 +286,14 @@ void PhysicsSystem::narrowCollisionDetection(Entity entityA, RigidBodyComponent&
 
 }
 
-void PhysicsSystem::collisionResolution(Registry& registry){
-
-    for(CollisionInfo& collision : collisionList){
+void PhysicsSystem::collisionResolution(Registry& registry) {
+    for (CollisionInfo& collision : collisionList) {
         RigidBodyComponent& rigidBodyA = registry.get<RigidBodyComponent>(collision.entityA);
         RigidBodyComponent& rigidBodyB = registry.get<RigidBodyComponent>(collision.entityB);
 
         Transform& transformA = registry.get<Transform>(collision.entityA);
         Transform& transformB = registry.get<Transform>(collision.entityB);
 
-        //Correction de la position
         vec3 correction = collision.normal * collision.penetrationDepth * 0.5f;
 
         if (rigidBodyA.bodyType != PhysicsType::STATIC && rigidBodyB.bodyType != PhysicsType::STATIC) {
@@ -305,68 +305,100 @@ void PhysicsSystem::collisionResolution(Registry& registry){
             transformB.addPos(-correction * 2.0f);
         }
 
-        
-        vec3 relativeVelocity = rigidBodyB.linearVelocity - rigidBodyA.linearVelocity;
+        vec3 rA = collision.collisionPointA - rigidBodyA.globalCentroid;
+        vec3 rB = collision.collisionPointB - rigidBodyB.globalCentroid;
 
-        float velocityAlongNormal = glm::dot(relativeVelocity, collision.normal);
+        vec3 vA = rigidBodyA.linearVelocity + cross(rigidBodyA.angularVelocity, rA);
+        vec3 vB = rigidBodyB.linearVelocity + cross(rigidBodyB.angularVelocity, rB);
+        vec3 relativeVelocity = vB - vA;
+        float velocityAlongNormal = dot(relativeVelocity, collision.normal);
 
-        if (velocityAlongNormal < 0) {
-            continue; //les objets s'eloignent 
-        }
+        if (velocityAlongNormal < 0)
+            continue;
+
+        vec3 raCrossN = cross(rA, collision.normal);
+        vec3 rbCrossN = cross(rB, collision.normal);
+
+        vec3 IA_raCrossN = rigidBodyA.globalInverseInertiaTensor * raCrossN;
+        vec3 IB_rbCrossN = rigidBodyB.globalInverseInertiaTensor * rbCrossN;
+
+        float denom = rigidBodyA.inverseMass + rigidBodyB.inverseMass + dot(cross(IA_raCrossN, rA) + cross(IB_rbCrossN, rB), collision.normal);
 
         float restitution = std::min(rigidBodyA.restitution, rigidBodyB.restitution);
-
-        float impulseStrength = -(1 + restitution) * velocityAlongNormal;
-        impulseStrength /= rigidBodyA.inverseMass + rigidBodyB.inverseMass;
+        float impulseStrength = -(1.0f + restitution) * velocityAlongNormal / denom;
 
         vec3 impulse = impulseStrength * collision.normal;
 
+
+        float linearDenom = rigidBodyA.inverseMass + rigidBodyB.inverseMass;
+        float linearImpulseStrength = -(1.0f + restitution) * velocityAlongNormal / linearDenom;
+        vec3 linearImpulse = linearImpulseStrength * collision.normal;
+        impulse = linearImpulse;
+
         if (rigidBodyA.bodyType != PhysicsType::STATIC) {
             rigidBodyA.linearVelocity -= impulse * rigidBodyA.inverseMass;
+            rigidBodyA.angularVelocity -= IA_raCrossN * impulseStrength;
         }
         if (rigidBodyB.bodyType != PhysicsType::STATIC) {
             rigidBodyB.linearVelocity += impulse * rigidBodyB.inverseMass;
+            rigidBodyB.angularVelocity += IB_rbCrossN * impulseStrength;
         }
 
+        vec3 tangent = relativeVelocity - dot(relativeVelocity, collision.normal) * collision.normal;
+        if (length(tangent) > 0.1f) tangent = normalize(tangent);
+        else continue;
 
-        //rotation
-        Console::getInstance().addLog("rotation ");
+        vec3 raCrossT = cross(rA, tangent);
+        vec3 rbCrossT = cross(rB, tangent);
 
-        if(rigidBodyA.bodyType != PhysicsType::STATIC){
-            vec3 rA = collision.localPointA - rigidBodyA.localCentroid;
-            vec3 angularImpulse = cross(rA, impulse);
+        vec3 IA_raCrossT = rigidBodyA.globalInverseInertiaTensor * raCrossT;
+        vec3 IB_rbCrossT = rigidBodyB.globalInverseInertiaTensor * rbCrossT;
 
-            rigidBodyA.angularVelocity += angularImpulse * rigidBodyA.globalInverseInertiaTensor / 2.0f;
-            Console::getInstance().addLog("Entity A: " + registry.get<Hierarchy>(collision.entityA).name);
-            Console::getInstance().addLog("localPointA: (" + std::to_string(collision.localPointA.x) + ", " + std::to_string(collision.localPointA.y) + ", " + std::to_string(collision.localPointA.z) + ")");
-            Console::getInstance().addLog("col pointA: (" + std::to_string(collision.collisionPointA.x) + ", " + std::to_string(collision.collisionPointA.y) + ", " + std::to_string(collision.collisionPointA.z) + ")");
-            Console::getInstance().addLog("Collision Normal: (" + std::to_string(collision.normal.x) + ", " + std::to_string(collision.normal.y) + ", " + std::to_string(collision.normal.z) + ")");
-            Console::getInstance().addLog("Impulse: (" + std::to_string(impulse.x) + ", " + std::to_string(impulse.y) + ", " + std::to_string(impulse.z) + ")");
-            Console::getInstance().addLog("Angular Impulse: (" + std::to_string(angularImpulse.x) + ", " + std::to_string(angularImpulse.y) + ", " + std::to_string(angularImpulse.z) + ")");
-            Console::getInstance().addLog("rA: (" + std::to_string(rA.x) + ", " + std::to_string(rA.y) + ", " + std::to_string(rA.z) + ")");
-            
+        float denomFriction = rigidBodyA.inverseMass + rigidBodyB.inverseMass + dot(cross(IA_raCrossT, rA) + cross(IB_rbCrossT, rB), tangent);
+
+        float impulseFriction;
+        vec3 frictionImpulse = vec3(0.0f);
+        if (denomFriction > 0.0f) {
+            //Console::getInstance().addLog("applying friction ");
+            impulseFriction = -dot(relativeVelocity, tangent) / denomFriction;
+            float mu = std::min(rigidBodyA.friction, rigidBodyB.friction);
+            float maxFriction = impulseStrength * mu;
+            impulseFriction = glm::clamp(impulseFriction, -maxFriction, maxFriction);
+            frictionImpulse = impulseFriction * tangent;
+
+            if (rigidBodyA.bodyType != PhysicsType::STATIC) {
+                rigidBodyA.linearVelocity -= frictionImpulse * rigidBodyA.inverseMass;
+                //Console::getInstance().addLog("Friction Impulse: (" + std::to_string(frictionImpulse.x) + ", " + std::to_string(frictionImpulse.y) + ", " + std::to_string(frictionImpulse.z) + ")");
+                vec3 deltaAngularVelocity = IA_raCrossT * impulseFriction;
+                rigidBodyA.angularVelocity -= deltaAngularVelocity;
+                //Console::getInstance().addLog("Delta Angular Velocity: (" + std::to_string(deltaAngularVelocity.x) + ", " + std::to_string(deltaAngularVelocity.y) + ", " + std::to_string(deltaAngularVelocity.z) + ")");
+
+            }
+            if (rigidBodyB.bodyType != PhysicsType::STATIC) {
+                rigidBodyB.linearVelocity += frictionImpulse * rigidBodyB.inverseMass;
+                rigidBodyB.angularVelocity += IB_rbCrossT * impulseFriction;
+            }
         }
-
-        if(rigidBodyB.bodyType != PhysicsType::STATIC){
-            vec3 rB = collision.localPointB - rigidBodyB.localCentroid;
-            vec3 angularImpulse = cross(rB, impulse);
-
-            rigidBodyB.angularVelocity += angularImpulse * rigidBodyB.globalInverseInertiaTensor / 2.0f;
-
-        }
-
+        /* Console::getInstance().addLog("Collision detected between Entity " + std::to_string(collision.entityA) + " and Entity " + std::to_string(collision.entityB));
+        Console::getInstance().addLog("Collision Point A: (" + std::to_string(collision.collisionPointA.x) + ", " + std::to_string(collision.collisionPointA.y) + ", " + std::to_string(collision.collisionPointA.z) + ")");
+        Console::getInstance().addLog("Collision Point B: (" + std::to_string(collision.collisionPointB.x) + ", " + std::to_string(collision.collisionPointB.y) + ", " + std::to_string(collision.collisionPointB.z) + ")");
+        Console::getInstance().addLog("Collision Normal: (" + std::to_string(collision.normal.x) + ", " + std::to_string(collision.normal.y) + ", " + std::to_string(collision.normal.z) + ")");
+        Console::getInstance().addLog("Penetration Depth: " + std::to_string(collision.penetrationDepth));
+        Console::getInstance().addLog("Impulse: (" + std::to_string(impulse.x) + ", " + std::to_string(impulse.y) + ", " + std::to_string(impulse.z) + ")");
+        Console::getInstance().addLog("Friction Impulse: (" + std::to_string(frictionImpulse.x) + ", " + std::to_string(frictionImpulse.y) + ", " + std::to_string(frictionImpulse.z) + ")");
+     */
 
     }
-
-    collisionList.clear();
-
 }
+
 
 
 
 void PhysicsSystem::update(Registry& registry, float deltaTime) {
 
     recomputeAABB(registry);
+
+    this->deltaTime = deltaTime;
 
     integrate(registry, deltaTime);
 
