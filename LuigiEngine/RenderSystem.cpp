@@ -4,11 +4,10 @@
 
 using namespace glm;
 
-void RenderSystem::setupMeshRendering(const MeshComponent &meshComp,
-                                      GLuint programID) {
+void RenderSystem::setupMeshRendering(const MeshComponent &meshComp) {
 
-  glUseProgram(programID);
-  glUniformMatrix4fv(glGetUniformLocation(programID, "mvp"), 1, GL_FALSE,
+  glUseProgram(meshComp.programID);
+  glUniformMatrix4fv(glGetUniformLocation(meshComp.programID, "mvp"), 1, GL_FALSE,
                      &meshComp.mvp[0][0][0]);
 
   glEnableVertexAttribArray(0);
@@ -35,7 +34,7 @@ void RenderSystem::bindTextureUniforms(const MeshComponent &meshComp,
   }
 }
 
-void RenderSystem::renderMesh(const MeshComponent &meshComp, GLuint programID,
+void RenderSystem::renderMesh(const MeshComponent &meshComp,
                               const TextureComponent *textures) {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, meshComp.elementbuffer);
   glDrawElements(GL_TRIANGLES, meshComp.activeMesh->triangles.size(),
@@ -64,14 +63,14 @@ void RenderSystem::render(Registry &registry) {
       meshComp.checkLOD(cameraPos, entityPos);
     }
 
-    setupMeshRendering(meshComp, meshComp.programID);
+    setupMeshRendering(meshComp);
 
     if (registry.has<TextureComponent>(entity)) {
       TextureComponent &textures = registry.get<TextureComponent>(entity);
       bindTextureUniforms(meshComp, textures);
     }
 
-    renderMesh(meshComp, meshComp.programID,
+    renderMesh(meshComp,
                registry.has<TextureComponent>(entity)
                    ? &registry.get<TextureComponent>(entity)
                    : nullptr);

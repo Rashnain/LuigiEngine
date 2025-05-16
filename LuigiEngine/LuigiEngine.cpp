@@ -23,16 +23,6 @@ using namespace std;
 
 #include "common/shader.hpp"
 
-// #include "SceneCamera.cpp"
-// #include "SceneMesh.cpp"
-// #include "SceneMeshPhong.cpp"
-// #include "SceneMeshPBR.cpp"
-// #include "SceneObject.cpp"
-// #include "Transform.cpp"
-// #include "Planet.cpp"
-// #include "PlanetPhong.cpp"
-
-
 #include "ECS.h"
 #include "RenderSystem.hpp"
 #include "SceneCamera.hpp"
@@ -53,11 +43,14 @@ void processInput(GLFWwindow *window);
 constexpr int SCR_WIDTH = 1024;
 constexpr int SCR_HEIGHT = 768;
 
+// ECS
+Registry registry;
+RenderSystem renderSystem;
+
 // cameras
-/* SceneCamera* cameraWorldSide;
-SceneCamera* cameraWorldUp;
-SceneCamera* cameraTerrain;
-SceneObject* mainCharacter; */
+Entity cameraWorldSideEntity;
+Entity cameraWorldUpEntity;
+Entity cameraEarthEntity;
 
 // timing
 double deltaTime; // time between current frame and last frame
@@ -134,7 +127,7 @@ int main()
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Open a window and create its OpenGL context
-    window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "TP Moteur - GLFW", nullptr, nullptr);
+    window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Projet Moteur", nullptr, nullptr);
     if( window == nullptr ){
         fprintf( stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Try the 2.1 version of the tutorials.\n" );
         getchar();
@@ -166,7 +159,7 @@ int main()
 
     // Enable depth test
     glEnable(GL_DEPTH_TEST);
-    // Accept fragment if it closer to the camera than the former one
+    // Accept fragment if it is closer to the camera than the former one
     glDepthFunc(GL_LESS);
 
     // Cull triangles which normal is not towards the camera
@@ -180,38 +173,19 @@ int main()
 
     /****************************************/
 
-    Registry registry;
-
     TransformSystem transformSystem;
-    RenderSystem renderSystem = RenderSystem();
+    renderSystem = RenderSystem();
     CameraSystem cameraSystem = CameraSystem();
-     // TODO [TP03] Scene Tree
 
-    //SceneObject world;
-
-    // TODO [TP01] Camera - (Model) (View) Projection
-    
     Mesh* sphereLOD1 = new Mesh("models/sphereLOD1.obj");
     Mesh* sphereLOD2 = new Mesh("models/sphereLOD2.obj");
 
     Mesh* suzanneLOD1 = new Mesh("models/suzanneLOD1.obj");
-    Mesh* suzanneLOD2 = new Mesh("models/suzanneLOD2.obj");
-
 
     GLuint simpleShaders = LoadShaders("shaders/vertex.glsl", "shaders/fragment.glsl");
     GLuint phongShaders = LoadShaders("shaders/vertex_phong.glsl", "shaders/fragment_phong.glsl");
     GLuint pbrShaders = LoadShaders("shaders/vertex_pbr.glsl", "shaders/fragment_pbr.glsl");
     GLuint terrainShaders = LoadShaders("shaders/vertex_terrain.glsl", "shaders/fragment_terrain.glsl");
-
-    /* quand on cree une mesh attache automatiquement un TextureComponent
-    TextureComponent textureComponent;
-    textureComponent.texFiles.push_back("sun.jpg");
-    textureComponent.texUniforms.push_back("tex"); */
-
-    constexpr double day = 2*M_PI;
-
-    //on pourrait peut creer un ShaderComponent pour savoir quelle shader utilise et stocke les uniforms 
-    MeshComponent sphereMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, simpleShaders, {"sun.jpg"}, {"tex"}); 
 
     // Mesh terrainMeshLOD1;
     // createFlatTerrain({128, 128}, terrainSize, terrainMeshLOD1.vertices, terrainMeshLOD1.triangles, terrainMeshLOD1.uvs);
@@ -241,63 +215,25 @@ int main()
     // SceneMeshPBR sphere_pbr_rust({{0, sphereLOD1}, {10, sphereLOD2}}, "rust", pbrShaders);
     // SceneMeshPBR sphere_pbr_white({{0, sphereLOD1}, {10, sphereLOD2}}, "whiteball", pbrShaders);
 
-    // world.addChild(cameraWorldSide);
-    // world.addChild(cameraWorldUp);
-    // world.addChild(&sun);
-    // earth.addChild(&terrain);
-    // terrain.addChild(suzanne);
-    // terrain.addChild(&sphere_pbr_brick);
-    // terrain.addChild(&sphere_pbr_metal);
-    // terrain.addChild(&sphere_pbr_wood);
-    // terrain.addChild(&sphere_pbr_rust);
-    // terrain.addChild(&sphere_pbr_white);
-    // sun.addChild(&mercury);
-    // sun.addChild(&venus);
-    // sun.addChild(&earth);
-    // suzanne->addChild(cameraTerrain);
-    // earth.addChild(&moon);
-    // SceneObject::setMainCamera(cameraTerrain);
-    // mainCharacter = suzanne;
+    // quand on cree un mesh on attache automatiquement un TextureComponent
+    // TextureComponent textureComponent;
+    // textureComponent.texFiles.emplace_back("sun.jpg");
+    // textureComponent.texUniforms.emplace_back("tex");
+    // TextureComponent textureComponent2({"sun.jpg"}, {"tex"});
 
-    // sun.transform.setScale(vec3(2));
-    // mercury.transform.setScale(vec3(2439 * 0.5 / 6378));
-    // venus.transform.setScale(vec3(6051 * 0.5 / 6378));
-    // earth.transform.setScale(vec3(0.5));
-    // moon.transform.setScale(vec3(1737.0 / 6378));
-    // terrain.transform.setScale(vec3(2));
-    // terrain.transform.setPos(vec3(-1*terrainSize.x, 1, -1*terrainSize.x));
-    // suzanne->transform.setPos({0.5, 0.25, 0.5});
-    // suzanne->transform.setScale(vec3(0.1f));
-    // sphere_pbr_brick.transform.setPos({0.0, 1, 1});
-    // sphere_pbr_brick.transform.setScale(vec3(0.1f));
-    // sphere_pbr_metal.transform.setPos({0.25, 1, 1});
-    // sphere_pbr_metal.transform.setScale(vec3(0.1f));
-    // sphere_pbr_wood.transform.setPos({0.50, 1, 1});
-    // sphere_pbr_wood.transform.setScale(vec3(0.1f));
-    // sphere_pbr_rust.transform.setPos({0.75, 1, 1});
-    // sphere_pbr_rust.transform.setScale(vec3(0.1f));
-    // sphere_pbr_white.transform.setPos({1.0, 1, 1});
-    // sphere_pbr_white.transform.setScale(vec3(0.1f));
-    // cameraWorldSide->transform.addPos({0, 0, 35});
-    // cameraWorldSide->speed = 5;
-    // cameraWorldUp->transform.addPos({0, 50, 0});
-    // cameraWorldUp->speed = 5;
-    // cameraWorldUp->transform.addEulerRot({-90, 0, 0});
-    // cameraTerrain->transform.addPos({0, 2.5, 15});
-    // cameraTerrain->speed = 0;
-
+    //on pourrait peut creer un ShaderComponent pour savoir quelle shader utilise et stocke les uniforms
+    MeshComponent sunMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, simpleShaders, {"sun.jpg"}, {"tex"});
     MeshComponent earthMeshComponent = MeshComponent({{0, sphereLOD1}, {35, suzanneLOD1}}, simpleShaders, {"earth.jpg"}, {"tex"});
-
     MeshComponent moonMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, simpleShaders,{"moon.jpg"}, {"tex"} );
 
-
-    Entity cameraWorldSideEntity = registry.create();
-
+    cameraWorldSideEntity = registry.create();
+    cameraWorldUpEntity = registry.create();
+    cameraEarthEntity = registry.create();
+    Entity sunEntity = registry.create();
     Entity earthEntity = registry.create();
     Entity moonEntity = registry.create();
-    Entity sunEntity = registry.create();
 
-    registry.emplace<MeshComponent>(sunEntity,sphereMeshComponent);
+    registry.emplace<MeshComponent>(sunEntity,sunMeshComponent);
     registry.emplace<MeshComponent>(earthEntity, earthMeshComponent);
     registry.emplace<MeshComponent>(moonEntity, moonMeshComponent);
     
@@ -305,27 +241,28 @@ int main()
     mat4 pers = perspective(radians(45.0f), 1.0f * SCR_WIDTH / SCR_HEIGHT, 0.1f, 1000.0f);
     
     // on attache les composants aux entite 
-    registry.emplace<Transform>(cameraWorldSideEntity).addPos({0, 0, 35});
     registry.emplace<CameraComponent>(cameraWorldSideEntity, pers).speed = 5.0f;
+    registry.emplace<CameraComponent>(cameraWorldUpEntity, pers).speed = 5.0f;
+    registry.emplace<CameraComponent>(cameraEarthEntity, pers).speed = 5.0f;
 
     renderSystem.activeCamera = cameraWorldSideEntity;
 
-
+    registry.emplace<Transform>(cameraWorldSideEntity).addPos({0, 0, 35});
+    registry.emplace<Transform>(cameraWorldUpEntity).addPos({0, 50, 0});
+    registry.get<Transform>(cameraWorldUpEntity).setRot(quat({-M_PI/2, 0, 0}));
+    registry.emplace<Transform>(cameraEarthEntity).addPos({0, 0, 7.5});
+    // TODO bug si pas dans le bon ordre !!!
     registry.emplace<Transform>(earthEntity).setPos({5, 0, 0});
     registry.emplace<Transform>(moonEntity).setPos({5, 0, 0});
     registry.emplace<Transform>(sunEntity).setPos({0,0,0});
 
-    registry.emplace<Hierarchy>(earthEntity, sunEntity, vector<Entity>{moonEntity});
-
-
     registry.get<Transform>(sunEntity).setScale(vec3(2));
-
-
-
     registry.get<Transform>(earthEntity).setScale(vec3(0.5));
     registry.get<Transform>(moonEntity).setScale(vec3(1737.0 / 6378));
 
- 
+    registry.emplace<Hierarchy>(earthEntity, sunEntity, vector{moonEntity});
+    registry.emplace<Hierarchy>(cameraEarthEntity, earthEntity, vector<Entity>{});
+
     Console& console = Console::getInstance();
 
     initImGui(window);
@@ -333,7 +270,6 @@ int main()
     if (!sceneRenderer.setupFramebuffer(SCR_WIDTH, SCR_HEIGHT, 1.0f)) {
         console.addLog("Failed to initialize Scene Renderer");
     }
-
  
     lastFrame = glfwGetTime();
 
@@ -372,19 +308,13 @@ int main()
         rotationQuat = quat(rotationAngles);
         registry.get<Transform>(moonEntity).setRot(rotationQuat);
 
-
-
         transformSystem.update(registry);
         cameraSystem.update(registry);
         cameraSystem.computeViewProj(registry);
 
-
-        if (sceneRenderer.isInitialized()) {
-            if(!sceneRenderer.render(deltaTime, paused, renderSystem, registry)){
+        if (sceneRenderer.isInitialized())
+            if (!sceneRenderer.render(deltaTime, paused, renderSystem, registry))
                 console.addLog("Scene Renderer error");
-            }
-
-        }
 
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -418,40 +348,41 @@ void processInput(GLFWwindow *window)
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-   /*  // TODO [TP02] Camera - Déplacements
-    SceneCamera* mainCamera = SceneObject::getMainCamera();
-    if (mainCamera) {
-        float distance = mainCamera->speed;
+    // TODO [TP02] Camera - Déplacements
+    // Transform mainCameraTransform = registry.get<Transform>(renderSystem.activeCamera);
+    // CameraComponent mainCameraComponent = registry.get<CameraComponent>(renderSystem.activeCamera);
+    // // if (mainCameraTransform) {
+    //     float distance = registry.get<CameraComponent>(renderSystem.activeCamera).speed;
+    //
+    //     if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+    //         distance *= 3;
+    //     if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS)
+    //         distance /= 3;
+    //
+    //     distance *= static_cast<float>(deltaTime);
+    //     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    //         mainCameraTransform.addPos(distance * mat3(mainCameraTransform.getRot()) * mainCameraComponent.target);
+    //     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    //         mainCameraTransform.addPos(-distance * mat3(mainCameraTransform.getRot()) * mainCameraComponent.target);
+    //     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    //         mainCameraTransform.addPos(distance * mat3(mainCameraTransform.getRot()) * mainCameraComponent.right);
+    //     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+    //         mainCameraTransform.addPos(-distance * mat3(mainCameraTransform.getRot()) * mainCameraComponent.right);
+    //     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+    //         mainCameraTransform.addPos(distance * mat3(mainCameraTransform.getRot()) * mainCameraComponent.up);
+    //     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+    //         mainCameraTransform.addPos(-distance * mat3(mainCameraTransform.getRot()) * mainCameraComponent.up);
+    //     // TODO [Camera] ajouter bind changement de caméra perspective à orthonormal et inversement
+    //     // mat4 orth = ...
+    //     // mainCamera.setProjection(orth);
+    // // }
 
-        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-            distance *= 3;
-        if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS)
-            distance /= 3;
-
-        distance *= static_cast<float>(deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-            mainCamera->transform.addPos(distance * mainCamera->getLocalTarget());
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-            mainCamera->transform.addPos(-distance * mainCamera->getLocalTarget());
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-            mainCamera->transform.addPos(distance * mainCamera->getLocalRight());
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-            mainCamera->transform.addPos(-distance * mainCamera->getLocalRight());
-        if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-            mainCamera->transform.addPos(distance * mainCamera->getLocalUp());
-        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-            mainCamera->transform.addPos(-distance * mainCamera->getLocalUp());
-        // TODO [Camera] ajouter bind changement de caméra perspective à orthonormal et inversement
-        // mat4 orth = ...
-        // mainCamera.setProjection(orth);
-    } */
-
-    /* if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
-        SceneObject::setMainCamera(cameraWorldSide);
+    if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
+        renderSystem.activeCamera = cameraWorldSideEntity;
     if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS)
-        SceneObject::setMainCamera(cameraWorldUp);
+        renderSystem.activeCamera = cameraWorldUpEntity;
     if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
-        SceneObject::setMainCamera(cameraTerrain); */
+        renderSystem.activeCamera = cameraEarthEntity;
 
     // TODO [TP04] Déplacement personnage
     /* if (mainCharacter && mainCamera == cameraTerrain) {

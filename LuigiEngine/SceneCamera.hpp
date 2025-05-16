@@ -7,20 +7,20 @@
 
 
 struct CameraComponent {
-    glm::mat4 projection{1.0f};
-    glm::mat4 view{1.0f};
-    glm::mat4 viewProj{1.0f};
+    mat4 projection{1.0f};
+    mat4 view{1.0f};
+    mat4 viewProj{1.0f};
 
-    glm::vec3 target{0, 0, -1};
-    glm::vec3 up{0, 1, 0};
-    glm::vec3 right = glm::normalize(glm::cross(target, up));
+    vec3 target{0, 0, -1};
+    vec3 up{0, 1, 0};
+    vec3 right = normalize(cross(target, up));
 
     bool viewProjChanged = true;
     bool justDefinedMain = true;
     float speed = 1.0f;
 
     CameraComponent() = default;
-    explicit CameraComponent(const glm::mat4& proj) : projection(proj) {}
+    explicit CameraComponent(const mat4& proj) : projection(proj) {}
 
     void onAttach(Registry & registry, Entity entity){};
     void onDetach(Registry & registry, Entity entity){};

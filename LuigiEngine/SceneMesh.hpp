@@ -16,16 +16,18 @@
 
 #include "external/stb_image.h"
 
+using namespace std;
+
 struct MeshComponent {
-    std::vector<std::pair<double, Mesh*>> meshes;
+    vector<pair<double, Mesh*>> meshes;
     Mesh* activeMesh;
 
     GLuint vertexbuffer;
     GLuint normalbuffer;
     GLuint uvbuffer;
     GLuint elementbuffer;
-	std::vector<std::string> texFiles;
-    std::vector<std::string> texUniforms;
+	vector<string> texFiles;
+    vector<string> texUniforms;
 
     GLuint programID;
     mat4* mvp;
@@ -33,10 +35,10 @@ struct MeshComponent {
 	MeshComponent() = default;
 
 	MeshComponent(
-        const std::vector<std::pair<double, Mesh*>>& meshes,
+        const vector<pair<double, Mesh*>>& meshes,
         GLuint programID,
-        const std::vector<std::string>& texFiles_in = {},
-        const std::vector<std::string>& texUniforms_in = {}
+        const vector<string>& texFiles_in = {},
+        const vector<string>& texUniforms_in = {}
     ) : meshes(meshes), activeMesh(meshes.empty() ? nullptr : meshes[0].second), programID(programID), mvp(nullptr) {
 
 			createVBO();
@@ -56,13 +58,13 @@ struct MeshComponent {
 
 
 struct TextureComponent {
-    std::vector<std::string> texFiles;
-    std::vector<std::string> texUniforms;
-    std::vector<GLuint> textureIDs;
+    vector<string> texFiles;
+    vector<string> texUniforms;
+    vector<GLuint> textureIDs;
 
 	TextureComponent(
-        const std::vector<std::string>& texFiles = {},
-        const std::vector<std::string>& texUniforms = {}
+        const vector<string>& texFiles = {},
+        const vector<string>& texUniforms = {}
     )
         : texFiles(texFiles), texUniforms(texUniforms) {
         loadTextures();

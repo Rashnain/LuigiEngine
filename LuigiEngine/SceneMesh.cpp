@@ -34,7 +34,7 @@ void MeshComponent::checkLOD(const glm::vec3& cameraPos, const glm::vec3& entity
     if (meshes.size() == 1) return;
 
     const double distanceToCamera = glm::length(cameraPos - entityPos);
-    std::cout << "Distance to camera: " << distanceToCamera << std::endl;
+//    std::cout << "Distance to camera: " << distanceToCamera << std::endl;
     for (unsigned long i = meshes.size(); i-- > 0;) {
         if (distanceToCamera >= meshes[i].first) {
             if (activeMesh != meshes[i].second) {
