@@ -90,7 +90,7 @@ void CollisionDetection::collision_obb_obb(const Entity entityA, const Collider&
 
     //calculer point de contact
 
-    ContactPointDetection::contact_obb_obb(entityA, wobbA, transformA, entityB, wobbB, transformB, collisionInfo);
+    //ContactPointDetection::contact_obb_obb(entityA, wobbA, transformA, entityB, wobbB, transformB, collisionInfo);
 
     
 }
@@ -373,6 +373,72 @@ void CollisionDetection::collision_obb_plane(const Entity entityA, const Collide
 void CollisionDetection::collision_plane_plane(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB, const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {
     // Empty implementation
 }
+
+void CollisionDetection::collision_ray_obb(const Entity entityA, const Ray& ray ,const Transform& transformA, const Entity entityB, const OBBCollider& obb, const Transform& transformB, CollisionInfo& collisionInfo){
+
+    collisionInfo.isColliding = false;
+
+    WorldOBB wobb;
+    getWorldOBB(obb, transformB, wobb);
+
+    mat4 obbModel = mat4(1.0f);
+    obbModel[0] = vec4(wobb.axes[0], 0.0f);
+    obbModel[1] = vec4(wobb.axes[1], 0.0f);
+    obbModel[2] = vec4(wobb.axes[2], 0.0f);
+    obbModel[3] = vec4(wobb.globalCentroid, 1.0f);
+
+    mat4 invObbModel = inverse(obbModel);
+
+    vec3 localOrigin = vec3(invObbModel * vec4(ray.origin, 1.0f));
+    vec3 localDir = normalize(vec3(invObbModel * vec4(ray.direction, 0.0f)));
+
+    vec3 minB = -wobb.halfSize;
+    vec3 maxB = wobb.halfSize;
+
+    float tmin = numeric_limits<float>::lowest();
+    float tmax = numeric_limits<float>::max();
+
+    for (int i = 0; i < 3; ++i) {
+        if (abs(localDir[i]) < 1e-8f) {//ray parallele
+            if (localOrigin[i] < minB[i] || localOrigin[i] > maxB[i])
+                return;
+        } else {
+            float ood = 1.0f / localDir[i];
+            float t1 = (minB[i] - localOrigin[i]) * ood;
+            float t2 = (maxB[i] - localOrigin[i]) * ood;
+            if (t1 > t2) std::swap(t1, t2);
+            tmin = std::max(tmin, t1);
+            tmax = std::min(tmax, t2);
+            if (tmin > tmax)
+                return;
+        }
+    }
+
+    if (tmax < 0.0f) return;
+
+    float tHit = tmin >= 0.0f ? tmin : tmax;
+    vec3 localHit = localOrigin + localDir * tHit;
+    vec3 globalHit = vec3(obbModel * vec4(localHit, 1.0f));
+
+    if (tHit < 0.0f || tHit > ray.length) return; 
+
+    collisionInfo.isColliding = true;
+    collisionInfo.penetrationDepth = tHit;
+    collisionInfo.collisionPointA = ray.origin + ray.direction * tHit;
+    collisionInfo.collisionPointB = globalHit;
+
+    vec3 normalLocal(0.0f);
+    for (int i = 0; i < 3; ++i) {
+        if (abs(localHit[i] - minB[i]) < 0.00001f)
+            normalLocal[i] = -1.0f;
+        else if (abs(localHit[i] - maxB[i]) < 0.00001f)
+            normalLocal[i] = 1.0f;
+    }
+
+    collisionInfo.normal = normalize(vec3(obbModel * vec4(normalLocal, 0.0f)));
+
+}
+
    
 
 void CollisionDetection::testCollision(const Entity entityA, const Collider &colliderA, const Transform &transformA, const Entity entityB, const Collider &colliderB, const Transform &transformB, CollisionInfo &collisionInfo){
@@ -470,7 +536,7 @@ Face bestFace(vec3 vertices[8], vector<Face>& faces, int minIndex, vec3 axis){
     Face best;
     float bestAlignement = numeric_limits<float>::lowest();
 
-    for(Face f : faces) {
+    for(Face &f : faces) {
 
         bool containsTarget = false;
         vector<int> faceIndices;
@@ -491,90 +557,13 @@ Face bestFace(vec3 vertices[8], vector<Face>& faces, int minIndex, vec3 axis){
 
 }
 
-bool facesShareEdge(const Face& a, const Face& b) {
-    int shared = 0;
-    for(int ai : a.indices) {
-        for(int bi : b.indices) {
-            if(ai == bi && ++shared >= 2) return true;
-        }
-    }
-    return false;
-}
-
-/* vector<vec3> clipPolygonAgainstPlane(const vector<vec3>& polygon, const vec3& planeNormal, const vec3& planePoint){
-
-    vector<vec3> output;
-    int nbVertices = polygon.size();
-    if(nbVertices == 0) return output;
-
-    const float tolerance = 0.00001f;
-
-    for(int i = 0; i < nbVertices; i++){
-
-        vec3 currentVertex = polygon[i];
-        vec3 previousVertex = polygon[(i - 1 + nbVertices) % nbVertices];
-        vec3 nextVertex = polygon[(i+1) % nbVertices];
-
-        float currentDistance = dot(currentVertex - planePoint, planeNormal);
-        float previousDistance = dot(previousVertex - planePoint, planeNormal);
-        float nextDistance = dot(nextVertex - planePoint, planeNormal);
-
-        bool currentInside = (currentDistance <= tolerance);
-        bool previousInside = (previousDistance <= tolerance);
-        bool nextInside = (nextDistance <= tolerance);
-
-        vec3 newVertex = currentVertex;
-
-        if(!currentInside){
-            if(previousInside){
-                float t = previousDistance / (previousDistance - currentDistance);
-                newVertex = previousVertex + t * (currentVertex - previousVertex);
-            }else if(nextInside){
-                float t = currentDistance / (currentDistance - nextDistance);
-                newVertex = currentVertex + t * (nextVertex - currentVertex);
-            }else{
-                newVertex = currentVertex - currentDistance * planeNormal;
-            }
-        }
-
-        output.push_back(newVertex);
-
-    }
-
-    return output;
-
-}
- */
-vector<vec3> clipPolygonAgainstPlane(
-    const vector<vec3>& polygon,
-    const vec3& planeNormal,
-    const vec3& planePoint,
-    float tolerance = 1e-5f
-) {
-    vector<vec3> output;
-    const float planeD = dot(planeNormal, planePoint);
-    
-    for(size_t i = 0; i < polygon.size(); ++i) {
-        const vec3& current = polygon[i];
-        const vec3& next = polygon[(i+1)%polygon.size()];
-        
-        const float dCurrent = dot(planeNormal, current) - planeD;
-        const float dNext = dot(planeNormal, next) - planeD;
-        
-        if(dCurrent <= tolerance) output.push_back(current);
-        if((dCurrent > tolerance) != (dNext > tolerance)) {
-            const float t = (dCurrent) / (dCurrent - dNext);
-            output.push_back(mix(current, next, t));
-        }
-    }
-    
-    return output;
-}
 
 //algo de Sutherland Hodgman pour le polygon clipping
 void ContactPointDetection::contact_obb_obb(const Entity entityA, const WorldOBB& wobbA, const Transform& transformA, const Entity entityB, const WorldOBB& wobbB, const Transform& transformB, CollisionInfo& collisionInfo){
 
     //on determine la face de reference et la face incidente
+
+    //collisionInfo.normal = normalize(-collisionInfo.normal);
 
     vec3 verticesA[8];
     vec3 verticesB[8];
@@ -585,20 +574,43 @@ void ContactPointDetection::contact_obb_obb(const Entity entityA, const WorldOBB
     vector<Face> facesA;
     vector<Face> facesB;
 
-    WorldOBB::getFaces(verticesA, facesA );
-    WorldOBB::getFaces(verticesB, facesB);
+    wobbA.getFaces(verticesA, facesA);
+    wobbB.getFaces(verticesB, facesB);
 
-    int minIndexA = supportOBB(verticesA, collisionInfo.normal);
-    int minIndexB = supportOBB(verticesB, -collisionInfo.normal);
+    /* for (size_t i = 0; i < facesA.size(); ++i) {
+        const Face& f = facesA[i];
+        Console::getInstance().addLog("facesA[" + std::to_string(i) + "] normal: (" +
+            std::to_string(f.normal.x) + ", " +
+            std::to_string(f.normal.y) + ", " +
+            std::to_string(f.normal.z) + ")");
+    }
+    for (size_t i = 0; i < facesB.size(); ++i) {
+        const Face& f = facesB[i];
+        Console::getInstance().addLog("facesB[" + std::to_string(i) + "] normal: (" +
+            std::to_string(f.normal.x) + ", " +
+            std::to_string(f.normal.y) + ", " +
+            std::to_string(f.normal.z) + ")");
+    } */
 
-    Face faceA = bestFace(verticesA, facesA, minIndexA, collisionInfo.normal);
-    Face faceB = bestFace(verticesB, facesB, minIndexB, -collisionInfo.normal);
 
-    float alignementA = dot(faceA.normal, collisionInfo.normal);
-    float alignementB = dot(faceB.normal, -collisionInfo.normal);
+    int minIndexA = supportOBB(verticesA, -collisionInfo.normal);
+    int minIndexB = supportOBB(verticesB, collisionInfo.normal);
+
+    Console::getInstance().addLog("minIndexA: " + std::to_string(minIndexA));
+    Console::getInstance().addLog("minIndexB: " + std::to_string(minIndexB));
+
+    Face faceA = bestFace(verticesA, facesA, minIndexA, -collisionInfo.normal);
+    Face faceB = bestFace(verticesB, facesB, minIndexB, collisionInfo.normal);
+
+    Console::getInstance().addLog("FaceA normal: (" + std::to_string(faceA.normal.x) + ", " + std::to_string(faceA.normal.y) + ", " + std::to_string(faceA.normal.z) + ")");
+    Console::getInstance().addLog("FaceB normal: (" + std::to_string(faceB.normal.x) + ", " + std::to_string(faceB.normal.y) + ", " + std::to_string(faceB.normal.z) + ")");
+
+    float alignementA = dot(faceA.normal, -collisionInfo.normal);
+    float alignementB = dot(faceB.normal, collisionInfo.normal);
 
     Console::getInstance().addLog(("entityA: " + std::to_string(entityA) + ", entityB: " + std::to_string(entityB)).c_str());
     Console::getInstance().addLog(("alignementA: " + std::to_string(alignementA) + ", alignementB: " + std::to_string(alignementB)).c_str());
+    Console::getInstance().addLog(("Collision normal: " + std::to_string(collisionInfo.normal.x) + ", " + std::to_string(collisionInfo.normal.y) + ", " + std::to_string(collisionInfo.normal.z)).c_str());
 
     Face referenceFace;
     Face incidentFace;
@@ -607,74 +619,77 @@ void ContactPointDetection::contact_obb_obb(const Entity entityA, const WorldOBB
     vector<vec3> referenceOBBVertices;
     vec3 newClippingNormal;
 
-    if (alignementA < alignementB) {
-        referenceFace = faceB;
-        incidentFace = faceA;
-        referenceOBBVertices = vector<vec3>(verticesB, verticesB + 8);
-        referenceOBBFaces = facesB;
-        newClippingNormal = -collisionInfo.normal;
-        Console::getInstance().addLog("Reference: B, Incident: A");
+ 
+    float volumeA = 8.0f * wobbA.halfSize.x * wobbA.halfSize.y * wobbA.halfSize.z;
+    float volumeB = 8.0f * wobbB.halfSize.x * wobbB.halfSize.y * wobbB.halfSize.z;
 
-        
-    } else {
+    if (volumeA < volumeB) {
         referenceFace = faceA;
         incidentFace = faceB;
         referenceOBBVertices = vector<vec3>(verticesA, verticesA + 8);
         referenceOBBFaces = facesA;
+        newClippingNormal = -collisionInfo.normal;
+        Console::getInstance().addLog("Reference: A (smaller), Incident: B");
+    } else {
+        referenceFace = faceB;
+        incidentFace = faceA;
+        referenceOBBVertices = vector<vec3>(verticesB, verticesB + 8);
+        referenceOBBFaces = facesB;
         newClippingNormal = collisionInfo.normal;
-        Console::getInstance().addLog("Reference: A, Incident: B");
+        Console::getInstance().addLog("Reference: B (smaller), Incident: A");
+    }
+
+
+    vec3 u = normalize(referenceFace.vertices[1] - referenceFace.vertices[0]);
+    vec3 v = normalize(referenceFace.vertices[3] - referenceFace.vertices[0]);
+
+    vec3 faceCenter = (referenceFace.vertices[0] + referenceFace.vertices[1] + referenceFace.vertices[2] + referenceFace.vertices[3]) * 0.25f;
+
+    vector<pair<vec3, vec3>> clipPlanes = {
+        {v, faceCenter},
+        {-v, faceCenter},
+        {u, faceCenter},
+        {-u, faceCenter}
+    };
+
+    vector<vec3> clipped = incidentFace.vertices;
+    Console::getInstance().addLog(("start clipped " + std::to_string(clipped.size())).c_str());
+ 
+
+    for(auto& [n,p] : clipPlanes){
+
+        vec3 planeNormal = n;
+        vec3 planePoint = p;
+
+        if(dot(planeNormal, referenceFace.normal) < 0.0f){
+            planeNormal = -planeNormal;
+        }
+
+        clipped = clipToPlane(clipped, planePoint, planeNormal);
+
+        Console::getInstance().addLog(("clipped " + std::to_string(clipped.size())).c_str());
+ 
+
+        if(clipped.empty()) break;
     }
 
     //clipping
 
-    vector<vec3> clippedVertices = incidentFace.vertices;
 
-    for(Face currAdjacentFace : referenceOBBFaces){
-
-        bool isSameFace = true;
-        bool isAdjacent = false;
-        for (int referenceFaceIndex : referenceFace.indices) {
-            for (int adjacentFaceIndex : currAdjacentFace.indices) {
-                if (referenceFaceIndex == adjacentFaceIndex) {
-                    isAdjacent = true;
-                    break;
-                }
-            }
-            if (std::find(currAdjacentFace.indices.begin(), currAdjacentFace.indices.end(), referenceFaceIndex) == currAdjacentFace.indices.end()) { // TODO combine with logic above for better efficiency
-                isSameFace = false;
-            }
-        }
-
-        if (isSameFace || !isAdjacent) {
-            continue;
-        }
-
-        glm::vec3 clipNormal = currAdjacentFace.normal;
-        if (dot(clipNormal, newClippingNormal) > 0.0f) {
-            clipNormal = -clipNormal;
-        }
-
-        clippedVertices = clipPolygonAgainstPlane(clippedVertices, clipNormal, currAdjacentFace.vertices[0]);
+    vector<vec3> manifold;
+    float D = dot(referenceFace.normal, referenceFace.vertices[0]);
+    for (auto& q : clipped) {
+        float d = dot(referenceFace.normal, q) - D;
+        vec3 pa = q - referenceFace.normal * d;
+        manifold.push_back(pa);
     }
 
-    vec3 planePoint = referenceFace.vertices[0];
+    collisionInfo.collisionPoints = manifold;
 
-    vector<vec3> finalContactPoints;
+    Console::getInstance().addLog(("final Contact points: " + std::to_string(collisionInfo.collisionPoints.size())).c_str());
+ 
+}
 
-    for(const vec3& point : clippedVertices){
-
-        float d = dot((point - planePoint), referenceFace.normal);
-
-        if(d < 0.00001f) {
-            finalContactPoints.push_back(point);
-        }
-
-    }
-
-    collisionInfo.collisionPoints = finalContactPoints;
-
-}   
-    
 
 void ContactPointDetection::contact_sphere_sphere(const Entity entityA, const SphereCollider& colliderA, const Transform& transformA, const Entity entityB, const SphereCollider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo) {
     //pas besoin on le fait deja dans test sphere vs sphere

@@ -72,6 +72,7 @@ add_executable(LuigiEngine
 	LuigiEngine/SceneCamera.cpp
 	LuigiEngine/Physics.cpp
 	LuigiEngine/PhysicsUtils.cpp
+	LuigiEngine/Constraint.cpp
     common/shader.cpp
     common/shader.hpp
     common/controls.cpp

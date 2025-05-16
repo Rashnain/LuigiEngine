@@ -135,6 +135,14 @@ struct OBBCollider : public Collider {
 
 };
 
+struct Ray{
+    vec3 origin;
+    vec3 direction;
+    float length;
+
+    Ray(const vec3& origin, const vec3& direction, float length) : origin(origin), direction(direction), length(length) {}
+};
+
 struct Face {
     std::vector<glm::vec3> vertices;
     std::vector<int> indices;
@@ -143,7 +151,7 @@ struct Face {
 
 //utilisé pour le test de collision uniquement
 //nos obb sont definit en local, on veut en global
-struct WorldOBB{
+struct WorldOBB {
     vec3 globalCentroid;
     vec3 halfSize;
     vec3 axes[3]; // la nouvelle base
@@ -159,32 +167,41 @@ struct WorldOBB{
         vertices[7] = globalCentroid - axes[0] * halfSize.x - axes[1] * halfSize.y - axes[2] * halfSize.z;
     }
 
-    static void getFaces(const vec3 vertices[8], std::vector<Face>& faces) {
+    void getFaces(vec3 vertices[8],std::vector<Face>& facesOut) const {
         static const int faceDef[6][4] = {
-            {0, 1, 3, 2}, // +Y
-            {4, 5, 7, 6}, // -Y
-            {0, 1, 5, 4}, // +X
-            {2, 3, 7, 6}, // -X
-            {0, 2, 6, 4}, // +Z
-            {1, 3, 7, 5}  // -Z
+            { 0, 1, 5, 4 },   // +Y
+            { 2, 3, 7, 6 },   // -Y
+            { 0, 2, 6, 4 },   // +X
+            { 1, 3, 7, 5 },   // -X
+            { 0, 1, 3, 2 },   // +Z
+            { 4, 5, 7, 6 }    // -Z
         };
 
-        static const vec3 normals[6] = {
-            vec3(0,1,0), vec3(0,-1,0),
-            vec3(1,0,0), vec3(-1,0,0),
-            vec3(0,0,1), vec3(0,0,-1)
+        static const vec3 localNormals[6] = {
+            vec3( 0,  1,  0),
+            vec3( 0, -1,  0),
+            vec3( 1,  0,  0),
+            vec3(-1,  0,  0),
+            vec3( 0,  0,  1),
+            vec3( 0,  0, -1)
         };
 
 
-        faces.resize(6);
-        for(int i = 0; i < 6; ++i) {
-            Face& face = faces[i];
+        facesOut.resize(6);
+        for (int i = 0; i < 6; ++i) {
+            Face& face = facesOut[i];
             face.indices = {faceDef[i][0], faceDef[i][1], faceDef[i][2], faceDef[i][3]};
             face.vertices.clear();
-            for(int j = 0; j < 4; ++j) {
+            for (int j = 0; j < 4; ++j) {
                 face.vertices.push_back(vertices[faceDef[i][j]]);
             }
-            face.normal = normals[i];
+
+            const vec3& local = localNormals[i];
+            face.normal = normalize(
+                local.x * axes[0] +
+                local.y * axes[1] +
+                local.z * axes[2]
+            );
         }
     }
 };
@@ -242,7 +259,8 @@ public:
     static void collision_obb_plane(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB, const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo);
 
     static void collision_plane_plane(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB, const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo);
-
+    static void collision_ray_obb(const Entity entityA, const Ray& ray ,const Transform& transformA, const Entity entityB, const OBBCollider& obb, const Transform& transformB, CollisionInfo& collisionInfo);
+    
 
     //dispatch automatiquement vers la bonne fonction
     static void testCollision(

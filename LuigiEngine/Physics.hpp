@@ -83,6 +83,11 @@ struct RigidBodyComponent {
     void onDetach(Registry & registry, Entity entity){};
 
     void addCollider(Collider* collider);
+    
+    void addForceAt(const vec3& force, const vec3& point){
+        forceAccumulator += force;
+        torqueAccumulator += cross(point - globalCentroid, force);
+    };
 
 };
 

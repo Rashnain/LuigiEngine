@@ -40,6 +40,8 @@ using namespace std;
 #include "ImGuiHelper.hpp"
 #include "SceneRenderer.hpp" // #include "SceneCamera.cpp"
 
+#include "Constraint.hpp"
+
 void processInput(GLFWwindow *window, float deltaTime, Registry & registry, RenderSystem & renderSystem);
 
 // settings
@@ -151,7 +153,7 @@ MeshComponent testMeshComponent;
 TextureComponent testTextureComponent;
 Collider* testCollider;
 
-Entity debugCube1, debugCube2, debugCube3, debugCube4;
+Entity debugCube1, debugCube2, debugCube3, debugCube4, debugCube5, debugCube6;
 
 SphereCollider* sphereCollider;
 MeshComponent sphereMeshComponent;
@@ -318,6 +320,7 @@ int main()
     RenderSystem renderSystem = RenderSystem();
     CameraSystem cameraSystem = CameraSystem();
     PhysicsSystem physicsSystem = PhysicsSystem();
+    ConstraintSystem constraintSystem = ConstraintSystem();
 
     
 
@@ -368,6 +371,8 @@ int main()
 
     MeshComponent cylinderMeshComponent({{0, cylinderMesh}}, simpleShaders);
 
+    MeshComponent suzanneMeshComponent({{0, suzanneLOD1}}, simpleShaders, {"suzanne.png"}, {"tex"});
+
     TextureComponent snowRockTextureComponent = TextureComponent({"snowrock.png"}, {"tex"});
 
      //testing
@@ -378,9 +383,11 @@ int main()
     testCollider = new OBBCollider(vec3(1.0f, 1.0f, 1.0f));
     //testCollider = new SphereCollider(1.0f);
 
+    SuspensionConstraint suspensionConstraint;
 
     auto setupScene = [&](){
         registry.clear();
+        constraintSystem.suspensionConstraints.clear();
 
         //camera setup
         Entity cameraWorldSideEntity = registry.create();
@@ -391,7 +398,7 @@ int main()
         
         //entities create and attach comps
 
-        /* Entity terrainEntity = registry.create(); 
+        Entity terrainEntity = registry.create(); 
 
         registry.emplace<Transform>(terrainEntity).setPos(vec3(0,-5,0));
         registry.get<Transform>(terrainEntity).setScale(vec3(20,0.5,20));
@@ -401,10 +408,9 @@ int main()
         auto& body = registry.emplace<RigidBodyComponent>(terrainEntity);
         body.bodyType = PhysicsType::STATIC;
         body.addCollider(cubeCollider);
-        body.mass = 100.0;
-        body.inverseMass = 1.0/body.mass; */
+  
 
-        makeFloor(registry, 1, 1, 2.0f);
+        //makeFloor(registry, 5, 5, 2.0f);
 
         /* Entity terrainEntity = registry.create(); 
 
@@ -481,6 +487,14 @@ int main()
             registry.emplace<MeshComponent>(debugCube4, cubeMeshComponent);
             registry.emplace<Hierarchy>(debugCube4, std::vector<Entity>{}).name = "DebugCube4";
         }
+        {
+            debugCube5 = registry.create();
+            Transform& transform5 = registry.emplace<Transform>(debugCube5);
+            transform5.setPos(vec3(0.0f, 0.0f, 0.0f));
+            transform5.setScale(vec3(0.25f));
+            registry.emplace<MeshComponent>(debugCube5,suzanneMeshComponent );
+            registry.emplace<Hierarchy>(debugCube5, std::vector<Entity>{}).name = "DebugCube5";
+        }
 
          /* Entity sphere2Entity = registry.create();
         registry.emplace<Transform>(sphere2Entity).setPos(vec3(-3.5,6,3));
@@ -488,12 +502,24 @@ int main()
         registry.emplace<Hierarchy>(sphere2Entity, vector<Entity>{}).name = "Sphere2";
         registry.emplace<RigidBodyComponent>(sphere2Entity).addCollider(sphereCollider); */
         
+        
+        
         Entity cube1Entity = registry.create();
         registry.emplace<Transform>(cube1Entity).setPos(vec3(3,0,0));
-
+        registry.get<Transform>(cube1Entity).setScale(vec3(1.0f,0.5f,0.5f));
         registry.emplace<MeshComponent>(cube1Entity, cubeMeshComponent);
         registry.emplace<Hierarchy>(cube1Entity, vector<Entity>{}).name = "Cube1";
         registry.emplace<RigidBodyComponent>(cube1Entity).addCollider(cubeCollider);
+
+        
+        suspensionConstraint.entity = cube1Entity;
+        suspensionConstraint.localAnchor = vec3(0.0f, 0.0f, 0.0f);
+        suspensionConstraint.direction = vec3(0.0f, -1.0f, 0.0f);
+        suspensionConstraint.initialLength = 1.0f;
+        suspensionConstraint.stiffness = 10000.0f;
+        suspensionConstraint.damping = 0.1f;
+
+        constraintSystem.suspensionConstraints.push_back(suspensionConstraint);
 
         /*
         Entity sphere2Entity = registry.create();
@@ -581,6 +607,14 @@ int main()
             for (int i = 0; i < physicsPrecision; ++i) {
                 transformSystem.update(registry); 
                 physicsSystem.update(registry, (physicsStep * timeScale / (float) physicsPrecision));
+                constraintSystem.update(registry, (physicsStep * timeScale / (float) physicsPrecision));
+
+
+                RigidBodyComponent& carBody = registry.get<RigidBodyComponent>(suspensionConstraint.entity);
+                Transform& carTransform = registry.get<Transform>(suspensionConstraint.entity);
+                vec3 suspensionEnd = carTransform.getGlobalModel() * vec4(suspensionConstraint.localAnchor + suspensionConstraint.direction * suspensionConstraint.initialLength, 1.0f);
+                registry.get<Transform>(debugCube1).setPos(suspensionEnd);
+
             }
             double physicsEndTime = glfwGetTime();
             double physicsDuration = physicsEndTime - physicsStartTime;
@@ -598,13 +632,21 @@ int main()
                 //registry.get<Transform>(debugCube2).setPos(info.collisionPointB);
                 
 
-                vector<vec3> colPoints = info.collisionPoints;
+                /* vector<vec3> colPoints = info.collisionPoints;
                 int size = colPoints.size();
                 //std::cout << size << std::endl;
                 if (size >= 1) registry.get<Transform>(debugCube1).setPos(colPoints[0]);
                 if (size >= 2) registry.get<Transform>(debugCube2).setPos(colPoints[1]);
                 if (size >= 3) registry.get<Transform>(debugCube3).setPos(colPoints[2]);
                 if (size >= 4) registry.get<Transform>(debugCube4).setPos(colPoints[3]);
+
+                glm::vec3 avgPos = (
+                    registry.get<Transform>(debugCube1).getPos() +
+                    registry.get<Transform>(debugCube2).getPos() +
+                    registry.get<Transform>(debugCube3).getPos() +
+                    registry.get<Transform>(debugCube4).getPos()
+                ) / 4.0f;
+                registry.get<Transform>(debugCube5).setPos(avgPos); */
             } 
         } else {
             transformSystem.update(registry); 
