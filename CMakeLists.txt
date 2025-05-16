@@ -36,6 +36,9 @@ include_directories(
 	external/glfw-3.1.2/include/
 	external/glm/
 	external/glew-1.13.0/include/
+	external/imgui/backends
+	external/imgui/
+	external/ImGuiFileDialog/
 	.
 )
 
@@ -54,21 +57,45 @@ add_definitions(
 )
 
 # LuigiEngine
+
 add_executable(LuigiEngine
-	LuigiEngine/LuigiEngine.cpp
-	common/shader.cpp
-	common/shader.hpp
-	common/controls.cpp
-	common/controls.hpp
-	common/texture.cpp
-	common/texture.hpp
-	common/objloader.cpp
-	common/objloader.hpp
-	common/vboindexer.cpp
-	common/vboindexer.hpp)
+	LuigiEngine/SceneRenderer.cpp 
+    LuigiEngine/LuigiEngine.cpp
+	LuigiEngine/Transform.cpp
+	LuigiEngine/SceneMesh.cpp
+	LuigiEngine/RenderSystem.cpp
+	LuigiEngine/Mesh.cpp
+	LuigiEngine/SceneCamera.cpp
+    common/shader.cpp
+    common/shader.hpp
+    common/controls.cpp
+    common/controls.hpp
+    common/texture.cpp
+    common/texture.hpp
+    common/vboindexer.cpp
+    common/vboindexer.hpp
+    external/imgui/imgui.cpp
+    external/imgui/imgui_draw.cpp
+    external/imgui/imgui_demo.cpp
+    external/imgui/imgui_tables.cpp
+    external/imgui/imgui_widgets.cpp
+    external/imgui/backends/imgui_impl_glfw.cpp
+    external/imgui/backends/imgui_impl_opengl3.cpp
+    external/ImGuiFileDialog/ImGuiFileDialog.cpp
+)
+
 target_link_libraries(LuigiEngine
 	${ALL_LIBS}
 )
+
+target_compile_features(LuigiEngine PRIVATE cxx_std_17)
+
+target_compile_options(LuigiEngine PRIVATE
+    -g
+)
+
+
+
 # Xcode and Visual working directories
 set_target_properties(LuigiEngine PROPERTIES XCODE_ATTRIBUTE_CONFIGURATION_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/LuigiEngine/")
 create_target_launcher(LuigiEngine WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/LuigiEngine/")

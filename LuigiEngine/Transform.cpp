@@ -1,14 +1,13 @@
-#include <glm/gtc/matrix_transform.hpp>
-
-using namespace glm;
-using namespace std;
-
 extern int* nbLocalMatrixUpdate;
 extern int* nbGlobalMatrixUpdate;
 extern bool* optimizeMVP;
 
 #include "Transform.hpp"
-#include <glm/gtx/quaternion.hpp>
+
+using namespace glm;
+using namespace std;
+
+
 
 void Transform::computeLocalModelMatrix()
 {
@@ -73,4 +72,32 @@ void Transform::computeGlobalModelMatrix() {
 void Transform::computeGlobalModelMatrix(const mat4& parentModel) {
 	computeGlobalModelMatrix();
 	globalModel = parentModel * globalModel;
+}
+
+
+void TransformSystem::update(Registry & registry) {
+    for (Entity entity : registry.view<Transform>()) {
+        if (!registry.has<Hierarchy>(entity)) {
+            computeGlobalTransform(entity, registry, glm::mat4(1.0f));
+
+        } else {
+            const auto & hierarchy = registry.get<Hierarchy>(entity);
+            if (hierarchy.parent == INVALID) {
+                computeGlobalTransform(entity, registry, glm::mat4(1.0f));
+            }
+        }
+    }
+}
+
+
+void TransformSystem::computeGlobalTransform(Entity entity, Registry & registry, const glm::mat4 & parentModel) {
+    auto& transform = registry.get<Transform>(entity);
+    transform.computeGlobalModelMatrix(parentModel);
+
+    if (registry.has<Hierarchy>(entity)) {
+        auto & hierarchy = registry.get<Hierarchy>(entity);
+        for (Entity child : hierarchy.children) {
+            computeGlobalTransform(child, registry, transform.getGlobalModel());
+        }
+    }
 }

@@ -1,37 +1,79 @@
 #ifndef SCENEMESH_H
 #define SCENEMESH_H
 
-#include "SceneObject.hpp"
-#include "Mesh.cpp"
+#include "ECS.h"
+#include <vector>
+#include <glm/glm.hpp>
+#include <GL/glew.h>
+#include "Mesh.hpp"
 
-class SceneMesh : public SceneObject
-{
-	vector<pair<double, Mesh*>> meshes;
-	Mesh* activeMesh;
-	GLuint vertexbuffer;
-	GLuint normalbuffer;
-	GLuint uvbuffer;
-	GLuint elementbuffer;
-	vector<GLuint> textureIDs;
-	vector<string> uniforms;
-	mat4* mvp;
+#include <string>
 
-	void createVBO();
+#include <glm/gtc/matrix_transform.hpp>
+#include <GL/glew.h>
+#include <iostream>
 
-	void clearVBO();
 
-	void checkLOD();
+#include "external/stb_image.h"
 
-protected:
-	GLuint programID;
+struct MeshComponent {
+    std::vector<std::pair<double, Mesh*>> meshes;
+    Mesh* activeMesh;
 
-	void render() override;
+    GLuint vertexbuffer;
+    GLuint normalbuffer;
+    GLuint uvbuffer;
+    GLuint elementbuffer;
+	std::vector<std::string> texFiles;
+    std::vector<std::string> texUniforms;
 
-	void clear() override;
+    GLuint programID;
+    mat4* mvp;
 
-public:
-	SceneMesh(const vector<pair<double, Mesh*>>& meshes, const vector<string>& texFiles,
-		const vector<string>& texUniforms, GLuint programID);
+	MeshComponent() = default;
+
+	MeshComponent(
+        const std::vector<std::pair<double, Mesh*>>& meshes,
+        GLuint programID,
+        const std::vector<std::string>& texFiles_in = {},
+        const std::vector<std::string>& texUniforms_in = {}
+    ) : meshes(meshes), activeMesh(meshes.empty() ? nullptr : meshes[0].second), programID(programID), mvp(nullptr) {
+
+			createVBO();
+
+			texUniforms = texUniforms_in;
+			texFiles = texFiles_in;
+    }
+
+
+    void createVBO();
+    void clearVBO();
+    void checkLOD(const vec3& cameraPos, const vec3& entityPos);
+
+	void onAttach(Registry& registry, Entity entity);
+    void onDetach(Registry& registry, Entity entity){};
 };
 
-#endif //SCENEMESH_H
+
+struct TextureComponent {
+    std::vector<std::string> texFiles;
+    std::vector<std::string> texUniforms;
+    std::vector<GLuint> textureIDs;
+
+	TextureComponent(
+        const std::vector<std::string>& texFiles = {},
+        const std::vector<std::string>& texUniforms = {}
+    )
+        : texFiles(texFiles), texUniforms(texUniforms) {
+        loadTextures();
+    }
+
+    void loadTextures();
+
+	void onAttach(Registry& registry, Entity entity){};
+    void onDetach(Registry& registry, Entity entity){};
+};
+
+
+
+#endif // SCENEMESH_H

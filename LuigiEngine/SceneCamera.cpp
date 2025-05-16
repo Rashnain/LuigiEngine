@@ -1,69 +1,52 @@
-#include <glm/gtc/matrix_transform.hpp>
-
-using namespace glm;
-using namespace std;
+#include "SceneCamera.hpp"
 
 extern int* nbViewProjUpdate;
 extern bool* optimizeMVP;
 
-#include "SceneCamera.hpp"
+void CameraSystem::update(Registry& registry) {
+    auto view = registry.view<CameraComponent, Transform>();
 
-void SceneCamera::updateView() {
-    vec3 globalPos = vec3(transform.getGlobalModel()[3]);
+    for (auto entity : view) {
+        auto& camera = registry.get<CameraComponent>(entity);
+        auto& transform = registry.get<Transform>(entity);
 
-    mat3 globalRot = mat3(transform.getGlobalModel());
-    globalRot[0] = normalize(globalRot[0]);
-    globalRot[1] = normalize(globalRot[1]);
-    globalRot[2] = normalize(globalRot[2]);
+        if (!camera.justDefinedMain)
+            camera.viewProjChanged = false;
+        else
+            camera.justDefinedMain = false;
 
-    vec3 globalTarget = normalize(globalRot * target);
-    vec3 globalUp = normalize(globalRot * up);
-
-    // TODO [TP01] Camera - (Model) View (Projection)
-    // View matrix : camera/view transformation lookat() utiliser position target up
-    view = lookAt(globalPos, globalPos+globalTarget, globalUp);
-}
-
-void SceneCamera::update(double deltaTime) {
-    if (!justDefinedMain)
-        viewProjChanged = false;
-    else
-        justDefinedMain = false;
-
-    if (!transform.upToDateGlobal)
-        viewProjChanged = true;
-}
-
-SceneCamera::SceneCamera(mat4& projection) {
-    right = cross(target, up);
-    this->projection = projection;
-}
-
-mat4 SceneCamera::getViewProjMatrix() {
-    if (!*optimizeMVP || transform.changed) {
-        updateView();
-        viewProj = projection * view;
-        nbViewProjUpdate = new int(*nbViewProjUpdate + 1);
-        viewProjChanged = true;
-        transform.changed = false;
+        if (!transform.upToDateGlobal)
+            camera.viewProjChanged = true;
     }
-    return viewProj;
 }
 
-vec3 SceneCamera::getLocalTarget() {
-    return mat3(transform.getRot()) * target;
+void CameraSystem::computeViewProj(Registry& registry) {
+    auto view = registry.view<CameraComponent, Transform>();
+
+    for (auto entity : view) {
+        auto& camera = registry.get<CameraComponent>(entity);
+        auto& transform = registry.get<Transform>(entity);
+
+        if (!*optimizeMVP || transform.changed) {
+            updateView(transform, camera);
+            camera.viewProj = camera.projection * camera.view;
+            camera.viewProjChanged = true;
+            transform.changed = false;
+            ++(*nbViewProjUpdate);
+        }
+    }
 }
 
-vec3 SceneCamera::getLocalUp() {
-    return mat3(transform.getRot()) * up;
-}
+void CameraSystem::updateView( Transform& transform, CameraComponent& camera) {
+    glm::vec3 globalPos = glm::vec3(transform.getGlobalModel()[3]);
 
-vec3 SceneCamera::getLocalRight() {
-    return mat3(transform.getRot()) * right;
-}
+    glm::mat3 globalRot = glm::mat3(transform.getGlobalModel());
+    globalRot[0] = glm::normalize(globalRot[0]);
+    globalRot[1] = glm::normalize(globalRot[1]);
+    globalRot[2] = glm::normalize(globalRot[2]);
 
-void SceneCamera::setProjection(mat4& projection) {
-    this->projection = projection;
-    viewProj = projection * view; // TODO [Camera] tester avec caméra orthogonale
-    viewProjChanged = true;
+    glm::vec3 globalTarget = glm::normalize(globalRot * camera.target);
+    glm::vec3 globalUp = glm::normalize(globalRot * camera.up);
+
+    camera.view = glm::lookAt(globalPos, globalPos + globalTarget, globalUp);
 }
