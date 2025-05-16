@@ -53,7 +53,7 @@ double deltaTime; // time between current frame and last frame
 double lastFrame;
 double timeSinceKeyPressed = 0.0f;
 int refreshrateMode = 1; // 1 = V-Sync  0 = inf
-bool paused = true;
+bool paused = false;
 
 // debug
 double startTime;
@@ -151,8 +151,7 @@ MeshComponent testMeshComponent;
 TextureComponent testTextureComponent;
 Collider* testCollider;
 
-Entity debugCube1;
-Entity debugCube2;
+Entity debugCube1, debugCube2, debugCube3, debugCube4;
 
 SphereCollider* sphereCollider;
 MeshComponent sphereMeshComponent;
@@ -177,6 +176,28 @@ void makeBox(Registry& registry, vec3 position, float scale = 1.0f ){
     auto& rigidBody = registry.emplace<RigidBodyComponent>(object);
 
     rigidBody.addCollider(testCollider);
+}
+
+void makeFloor(Registry& registry, int tilesX = 10, int tilesZ = 10, float tileSize = 2.0f, float y = -5.0f) {
+    for (int x = 0; x < tilesX; ++x) {
+        for (int z = 0; z < tilesZ; ++z) {
+            Entity tile = registry.create();
+
+            Transform& transform = registry.emplace<Transform>(tile);
+            transform.setPos(vec3((x - tilesX / 2) * tileSize *2+ tileSize , y, (z - tilesZ / 2) * tileSize*2 + tileSize ));
+            transform.setScale(vec3(tileSize, 0.5f, tileSize));
+
+            registry.emplace<TextureComponent>(tile, testTextureComponent);
+            registry.emplace<MeshComponent>(tile, testMeshComponent);
+            registry.emplace<Hierarchy>(tile, std::vector<Entity>{}).name = "FloorTile_" + std::to_string(x) + "_" + std::to_string(z);
+
+            auto& body = registry.emplace<RigidBodyComponent>(tile);
+            body.bodyType = PhysicsType::STATIC;
+            body.addCollider(new OBBCollider(vec3(1.0f,1.0f,1.0f)));
+            body.mass = 100.0;
+            body.inverseMass = 1.0 / body.mass;
+        }
+    }
 }
 
 void spawnRandom(Registry& registry, vec3 position){
@@ -353,7 +374,7 @@ int main()
     testMesh = new Mesh("models/cube.obj");
     //testMesh = new Mesh("models/sphereLOD1.obj");
     testMeshComponent = MeshComponent({{0,testMesh}}, simpleShaders);
-    testTextureComponent = TextureComponent({"sun.jpg"}, {"tex"});
+    testTextureComponent = TextureComponent({"moon.jpg"}, {"tex"});
     testCollider = new OBBCollider(vec3(1.0f, 1.0f, 1.0f));
     //testCollider = new SphereCollider(1.0f);
 
@@ -370,18 +391,20 @@ int main()
         
         //entities create and attach comps
 
-        Entity terrainEntity = registry.create(); 
+        /* Entity terrainEntity = registry.create(); 
 
         registry.emplace<Transform>(terrainEntity).setPos(vec3(0,-5,0));
         registry.get<Transform>(terrainEntity).setScale(vec3(20,0.5,20));
-        registry.get<Transform>(terrainEntity).setRot(glm::rotate(mat4(1.0f), glm::radians(10.0f), vec3(0.0f, 0.0f, 1.0f)));
+        //registry.get<Transform>(terrainEntity).setRot(glm::rotate(mat4(1.0f), glm::radians(-10.0f), vec3(0.0f, 0.0f, 1.0f)));
         registry.emplace<MeshComponent>(terrainEntity, terrainMeshComponent);
         registry.emplace<Hierarchy>(terrainEntity, vector<Entity>{}).name = "Terrain";
         auto& body = registry.emplace<RigidBodyComponent>(terrainEntity);
         body.bodyType = PhysicsType::STATIC;
         body.addCollider(cubeCollider);
-        body.mass = 1.0;
-        body.inverseMass = 1.0/body.mass;
+        body.mass = 100.0;
+        body.inverseMass = 1.0/body.mass; */
+
+        makeFloor(registry, 1, 1, 2.0f);
 
         /* Entity terrainEntity = registry.create(); 
 
@@ -407,7 +430,7 @@ int main()
 
         registry.emplace<Transform>(cylinderEntity).setPos(vec3(0, 0, 0));
         registry.get<Transform>(cylinderEntity).setScale(vec3(1.0f, 0.5f, 1.0f));
-        registry.get<Transform>(cylinderEntity).setRot(glm::rotate(mat4(1.0f), glm::half_pi<float>() * 1.3f, vec3(0.0f, 0.0f, 1.0f)));
+        registry.get<Transform>(cylinderEntity).setRot(glm::rotate(mat4(1.0f), glm::half_pi<float>() , vec3(0.0f, 0.0f, 1.0f)));
         registry.emplace<TextureComponent>(cylinderEntity,snowRockTextureComponent);
         registry.emplace<MeshComponent>(cylinderEntity, cylinderMeshComponent);
         registry.emplace<Hierarchy>(cylinderEntity, vector<Entity>{}).name = "Cylinder";
@@ -415,11 +438,11 @@ int main()
         cylinderBody.addCollider(cylinderCollider); */
 
         
-        Entity sphere1Entity = registry.create();
+        /* Entity sphere1Entity = registry.create();
         registry.emplace<Transform>(sphere1Entity).setPos(vec3(-3,3,0));
         registry.emplace<MeshComponent>(sphere1Entity, sphereMeshComponent);
         registry.emplace<Hierarchy>(sphere1Entity, vector<Entity>{}).name = "Sphere1";
-        registry.emplace<RigidBodyComponent>(sphere1Entity).addCollider(sphereCollider);
+        registry.emplace<RigidBodyComponent>(sphere1Entity).addCollider(sphereCollider); */
 
         {
             debugCube1 = registry.create();
@@ -441,18 +464,36 @@ int main()
             registry.emplace<Hierarchy>(debugCube2, std::vector<Entity>{}).name = "DebugCube2";
         } 
 
-        /* Entity sphere2Entity = registry.create();
+        {
+            debugCube3 = registry.create();
+            Transform& transform3 = registry.emplace<Transform>(debugCube3);
+            transform3.setPos(vec3(0.0f, 0.0f, 0.0f));
+            transform3.setScale(vec3(0.1f));
+            registry.emplace<MeshComponent>(debugCube3, sphereMeshComponent);
+            registry.emplace<Hierarchy>(debugCube3, std::vector<Entity>{}).name = "DebugCube3";
+        }
+
+        {
+            debugCube4 = registry.create();
+            Transform& transform4 = registry.emplace<Transform>(debugCube4);
+            transform4.setPos(vec3(0.0f, 0.0f, 0.0f));
+            transform4.setScale(vec3(0.1f));
+            registry.emplace<MeshComponent>(debugCube4, cubeMeshComponent);
+            registry.emplace<Hierarchy>(debugCube4, std::vector<Entity>{}).name = "DebugCube4";
+        }
+
+         /* Entity sphere2Entity = registry.create();
         registry.emplace<Transform>(sphere2Entity).setPos(vec3(-3.5,6,3));
         registry.emplace<MeshComponent>(sphere2Entity, sphereMeshComponent);
         registry.emplace<Hierarchy>(sphere2Entity, vector<Entity>{}).name = "Sphere2";
-        registry.emplace<RigidBodyComponent>(sphere2Entity).addCollider(sphereCollider);
-         */
-        /* Entity cube1Entity = registry.create();
+        registry.emplace<RigidBodyComponent>(sphere2Entity).addCollider(sphereCollider); */
+        
+        Entity cube1Entity = registry.create();
         registry.emplace<Transform>(cube1Entity).setPos(vec3(3,0,0));
 
         registry.emplace<MeshComponent>(cube1Entity, cubeMeshComponent);
         registry.emplace<Hierarchy>(cube1Entity, vector<Entity>{}).name = "Cube1";
-        registry.emplace<RigidBodyComponent>(cube1Entity).addCollider(cubeCollider); */
+        registry.emplace<RigidBodyComponent>(cube1Entity).addCollider(cubeCollider);
 
         /*
         Entity sphere2Entity = registry.create();
@@ -552,21 +593,18 @@ int main()
                 RigidBodyComponent& rigidBodyA = registry.get<RigidBodyComponent>(info.entityA);
                 RigidBodyComponent& rigidBodyB = registry.get<RigidBodyComponent>(info.entityB);
 
-                vec3 localPoint = info.collisionPointA; 
+                //registry.get<Transform>(debugCube1).setPos(info.collisionPointA);
 
-                mat4 globalMatrixA = transformA.getGlobalModel();
-                vec3 globalPoint = vec3(globalMatrixA * vec4(localPoint, 1.0f));
+                //registry.get<Transform>(debugCube2).setPos(info.collisionPointB);
+                
 
-                //registry.get<Transform>(debugCube1).setPos(globalPoint);
-                registry.get<Transform>(debugCube1).setPos(info.collisionPointA);
-
-                localPoint = info.collisionPointA; 
-
-                mat4 globalMatrixB = transformB.getGlobalModel();
-                globalPoint = vec3(globalMatrixB * vec4(localPoint, 1.0f));
-
-                //registry.get<Transform>(debugCube2).setPos(globalPoint);
-                registry.get<Transform>(debugCube2).setPos(info.collisionPointB);
+                vector<vec3> colPoints = info.collisionPoints;
+                int size = colPoints.size();
+                //std::cout << size << std::endl;
+                if (size >= 1) registry.get<Transform>(debugCube1).setPos(colPoints[0]);
+                if (size >= 2) registry.get<Transform>(debugCube2).setPos(colPoints[1]);
+                if (size >= 3) registry.get<Transform>(debugCube3).setPos(colPoints[2]);
+                if (size >= 4) registry.get<Transform>(debugCube4).setPos(colPoints[3]);
             } 
         } else {
             transformSystem.update(registry); 

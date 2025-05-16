@@ -41,6 +41,10 @@ class Console {
             }
         }
 
+        void clearLogs() {
+            logs.clear();
+        }
+
 
 };
 

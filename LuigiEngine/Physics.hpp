@@ -56,11 +56,11 @@ struct RigidBodyComponent {
     bool isPaused = false;
     bool useGravity = true;
 
-    float linearDamping = 0.0f;
-    float angularDamping = 0.0f;
+    float linearDamping = 0.2f;
+    float angularDamping = 0.2f;
 
-    float restitution = 0.5f;
-    float friction = 1.0f;
+    float restitution = 0.25f;
+    float friction = 2.0f;
 
     RigidBodyComponent(){
         mass = 1.0f;
@@ -105,6 +105,8 @@ class PhysicsSystem  {
     void broadCollisionDetection(Registry& registry);
 
     void collisionResolution(Registry& registry);
+
+    void collisionResolutionLinear(Registry& registry);
 
 public : 
 

@@ -223,6 +223,7 @@ void PhysicsSystem::integrate(Registry& registry, float deltaTime){
 void PhysicsSystem::broadCollisionDetection(Registry& registry){
 
     collisionList.clear();
+    Console::getInstance().clearLogs();
 
     auto view = registry.view<RigidBodyComponent, Transform>();
 
@@ -238,6 +239,11 @@ void PhysicsSystem::broadCollisionDetection(Registry& registry){
             RigidBodyComponent& rigidBodyB = view.get<RigidBodyComponent>(entityB);
             Transform& transformB = view.get<Transform>(entityB);
 
+            if (rigidBodyA.bodyType == PhysicsType::STATIC && rigidBodyB.bodyType == PhysicsType::STATIC){
+                //Console::getInstance().addLog("skipping");
+                continue;
+            }
+
             bool collisionX = rigidBodyA.aabbCollider.min.x <= rigidBodyB.aabbCollider.max.x &&
                                rigidBodyA.aabbCollider.max.x >= rigidBodyB.aabbCollider.min.x;
 
@@ -252,7 +258,7 @@ void PhysicsSystem::broadCollisionDetection(Registry& registry){
 
                 narrowCollisionDetection(entityA, rigidBodyA, transformA,entityB, rigidBodyB, transformB);
             }else{
-                //Console::getInstance().addLog("no Collision");
+                //Console::getInstance().addLog("no broad Collision");
             }
 
 
@@ -280,6 +286,8 @@ void PhysicsSystem::narrowCollisionDetection(Entity entityA, RigidBodyComponent&
                 //Console::getInstance().addLog("collision narrow phase e " + std::to_string(entityA) + " e " + std::to_string(entityB));
 
                 //Console::getInstance().addLog("collision info normal = (" + std::to_string(collisionInfo.normal.x) + ", " + std::to_string(collisionInfo.normal.y) + ", " + std::to_string(collisionInfo.normal.z) + "), pen depth = " + std::to_string(collisionInfo.penetrationDepth));
+            }else{
+                //Console::getInstance().addLog("no narrow collision");
             }
         }
     }
@@ -391,6 +399,51 @@ void PhysicsSystem::collisionResolution(Registry& registry) {
     }
 }
 
+void PhysicsSystem::collisionResolutionLinear(Registry& registry) {
+    for (CollisionInfo& collision : collisionList) {
+        RigidBodyComponent& rigidBodyA = registry.get<RigidBodyComponent>(collision.entityA);
+        RigidBodyComponent& rigidBodyB = registry.get<RigidBodyComponent>(collision.entityB);
+
+        Transform& transformA = registry.get<Transform>(collision.entityA);
+        Transform& transformB = registry.get<Transform>(collision.entityB);
+
+        vec3 correction = collision.normal * collision.penetrationDepth * 0.5f;
+
+        if (rigidBodyA.bodyType != PhysicsType::STATIC && rigidBodyB.bodyType != PhysicsType::STATIC) {
+            transformA.addPos(correction);
+            transformB.addPos(-correction);
+        } else if (rigidBodyA.bodyType != PhysicsType::STATIC) {
+            transformA.addPos(correction * 2.0f);
+        } else if (rigidBodyB.bodyType != PhysicsType::STATIC) {
+            transformB.addPos(-correction * 2.0f);
+        }
+
+        vec3 vA = rigidBodyA.linearVelocity;
+        vec3 vB = rigidBodyB.linearVelocity;
+        vec3 relativeVelocity = vB - vA;
+        float velocityAlongNormal = dot(relativeVelocity, collision.normal);
+
+        if (velocityAlongNormal < 0)
+            continue;
+
+        float restitution = std::min(rigidBodyA.restitution, rigidBodyB.restitution);
+        float denom = rigidBodyA.inverseMass + rigidBodyB.inverseMass;
+
+        if (denom == 0.0f)
+            continue;
+
+        float impulseStrength = -(1.0f + restitution) * velocityAlongNormal / denom;
+        vec3 impulse = impulseStrength * collision.normal;
+
+        if (rigidBodyA.bodyType != PhysicsType::STATIC) {
+            rigidBodyA.linearVelocity -= impulse * rigidBodyA.inverseMass;
+        }
+        if (rigidBodyB.bodyType != PhysicsType::STATIC) {
+            rigidBodyB.linearVelocity += impulse * rigidBodyB.inverseMass;
+        }
+    }
+}
+
 
 
 
@@ -404,6 +457,6 @@ void PhysicsSystem::update(Registry& registry, float deltaTime) {
 
     broadCollisionDetection(registry);
 
-    collisionResolution(registry);
+    collisionResolutionLinear(registry);
 
 }

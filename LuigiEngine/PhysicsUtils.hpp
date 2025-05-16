@@ -16,14 +16,14 @@ struct CollisionInfo{
 
     bool isColliding = false;
 
-    vec3 point;
+    std::vector<vec3> collisionPoints;
+    std::vector<vec3> collisionPointsA;
+    std::vector<vec3> collisionPointsB;
     vec3 collisionPointA;
     vec3 collisionPointB;
     vec3 normal;
     float penetrationDepth;
 
-    vec3 localPointA; //le point de collision en coord local sur A
-    vec3 localPointB; //idem pour B
 
     float restitution;
 
@@ -135,6 +135,61 @@ struct OBBCollider : public Collider {
 
 };
 
+struct Face {
+    std::vector<glm::vec3> vertices;
+    std::vector<int> indices;
+    glm::vec3 normal;
+};
+
+//utilisé pour le test de collision uniquement
+//nos obb sont definit en local, on veut en global
+struct WorldOBB{
+    vec3 globalCentroid;
+    vec3 halfSize;
+    vec3 axes[3]; // la nouvelle base
+
+    void getVertices(vec3 vertices[8]) const {
+        vertices[0] = globalCentroid + axes[0] * halfSize.x + axes[1] * halfSize.y + axes[2] * halfSize.z;
+        vertices[1] = globalCentroid + axes[0] * halfSize.x + axes[1] * halfSize.y - axes[2] * halfSize.z;
+        vertices[2] = globalCentroid + axes[0] * halfSize.x - axes[1] * halfSize.y + axes[2] * halfSize.z;
+        vertices[3] = globalCentroid + axes[0] * halfSize.x - axes[1] * halfSize.y - axes[2] * halfSize.z;
+        vertices[4] = globalCentroid - axes[0] * halfSize.x + axes[1] * halfSize.y + axes[2] * halfSize.z;
+        vertices[5] = globalCentroid - axes[0] * halfSize.x + axes[1] * halfSize.y - axes[2] * halfSize.z;
+        vertices[6] = globalCentroid - axes[0] * halfSize.x - axes[1] * halfSize.y + axes[2] * halfSize.z;
+        vertices[7] = globalCentroid - axes[0] * halfSize.x - axes[1] * halfSize.y - axes[2] * halfSize.z;
+    }
+
+    static void getFaces(const vec3 vertices[8], std::vector<Face>& faces) {
+        static const int faceDef[6][4] = {
+            {0, 1, 3, 2}, // +Y
+            {4, 5, 7, 6}, // -Y
+            {0, 1, 5, 4}, // +X
+            {2, 3, 7, 6}, // -X
+            {0, 2, 6, 4}, // +Z
+            {1, 3, 7, 5}  // -Z
+        };
+
+        static const vec3 normals[6] = {
+            vec3(0,1,0), vec3(0,-1,0),
+            vec3(1,0,0), vec3(-1,0,0),
+            vec3(0,0,1), vec3(0,0,-1)
+        };
+
+
+        faces.resize(6);
+        for(int i = 0; i < 6; ++i) {
+            Face& face = faces[i];
+            face.indices = {faceDef[i][0], faceDef[i][1], faceDef[i][2], faceDef[i][3]};
+            face.vertices.clear();
+            for(int j = 0; j < 4; ++j) {
+                face.vertices.push_back(vertices[faceDef[i][j]]);
+            }
+            face.normal = normals[i];
+        }
+    }
+};
+
+
 struct PlaneCollider : public Collider {
     vec3 normal;
 
@@ -201,7 +256,7 @@ class ContactPointDetection{
 
 public:
 
-    static void contact_obb_obb(const Entity entityA, const OBBCollider& colliderA, const Transform& transformA, const Entity entityB, const OBBCollider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo);
+    static void contact_obb_obb(const Entity entityA, const WorldOBB& wobbA, const Transform& transformA, const Entity entityB, const WorldOBB& wobbB, const Transform& transformB, CollisionInfo& collisionInfo);
     static void contact_sphere_sphere(const Entity entityA, const SphereCollider& colliderA, const Transform& transformA, const Entity entityB, const SphereCollider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo);
     static void contact_sphere_obb(const Entity entityA, const SphereCollider& colliderA, const Transform& transformA, const Entity entityB, const OBBCollider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo);
     static void contact_obb_plane(const Entity entityA, const OBBCollider& colliderA, const Transform& transformA, const Entity entityB, const PlaneCollider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo);
