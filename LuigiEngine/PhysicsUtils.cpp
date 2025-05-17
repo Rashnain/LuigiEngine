@@ -14,7 +14,7 @@ CollisionFn CollisionDetection::collisionDispatchTable[CollisionDetection::NUM_C
 };
 
 
-void getWorldOBB(const OBBCollider& collider, const Transform& transform, WorldOBB& worldOBB){
+void CollisionDetection::getWorldOBB(const OBBCollider& collider, const Transform& transform, WorldOBB& worldOBB){
     mat4 transformModel = transform.getGlobalModel();
 
     mat4 colliderRotation = yawPitchRoll(collider.rotation.y, collider.rotation.x, collider.rotation.z);

@@ -18,11 +18,14 @@
 #include "SceneRenderer.hpp"
 
 #include "ECS.h"
+#include "Constraint.hpp"
+#include "Vehicle.hpp"
 
 extern bool paused;
 extern int physicsPrecision;
 extern float physicsFrameTime;
 extern float timeScale;
+extern ConstraintSystem constraintSystem;
 
 Entity selectedEntity = INVALID;
 
@@ -221,7 +224,38 @@ void renderImGui(Registry & registry) {
 
                     ImGui::Text("AABB min: %.2f, %.2f, %.2f", rigidBody.aabbCollider.min.x, rigidBody.aabbCollider.min.y, rigidBody.aabbCollider.min.z);
                     ImGui::Text("AABB max: %.2f, %.2f, %.2f", rigidBody.aabbCollider.max.x, rigidBody.aabbCollider.max.y, rigidBody.aabbCollider.max.z);
-                }   
+
+                    ImGui::Separator();
+                    ImGui::Text("Force Accumulator");
+                    ImGui::Text("X: %.2f, Y: %.2f, Z: %.2f", rigidBody.forceAccumulator.x, rigidBody.forceAccumulator.y, rigidBody.forceAccumulator.z);
+                    ImGui::Text("Torque Accumulator");
+                    ImGui::Text("X: %.2f, Y: %.2f, Z: %.2f", rigidBody.torqueAccumulator.x, rigidBody.torqueAccumulator.y, rigidBody.torqueAccumulator.z);  }
+                
+                if(registry.has<VehicleComponent>(selectedEntity)){
+                    VehicleComponent& vehicle = registry.get<VehicleComponent>(selectedEntity);
+                    ImGui::Text("Vehicle Constraint");
+                    float stiffness = vehicle.FLSuspension->stiffness;
+                    float damping = vehicle.FLSuspension->damping;
+                    float initialLength = vehicle.FLSuspension->initialLength;
+                    float maxForce = vehicle.FLSuspension->maxForce;
+                    ImGui::DragFloat("Stiffness", &stiffness, 0.1f, 0.0f, 10000.0f);
+                    if (ImGui::IsItemDeactivatedAfterEdit()) {
+                        vehicle.setStiffness(stiffness);
+                    }
+                    ImGui::DragFloat("Damping", &damping, 0.1f, 0.0f, 1000.0f);
+                    if (ImGui::IsItemDeactivatedAfterEdit()) {
+                        vehicle.setDamping(damping);
+                    }
+                    ImGui::DragFloat("Initial Length", &initialLength, 0.1f, 0.0f, 100.0f);
+                    if (ImGui::IsItemDeactivatedAfterEdit()) {
+                        vehicle.setInitialLength(initialLength);
+                    }
+
+                    ImGui::DragFloat("Max Force", &maxForce, 0.1f, 0.0f, 10000.0f);
+                    if (ImGui::IsItemDeactivatedAfterEdit()) {
+                        vehicle.setMaxForce(maxForce);
+                    }
+                }
             }
         }
     }

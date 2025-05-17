@@ -73,6 +73,7 @@ add_executable(LuigiEngine
 	LuigiEngine/Physics.cpp
 	LuigiEngine/PhysicsUtils.cpp
 	LuigiEngine/Constraint.cpp
+	LuigiEngine/Vehicle.cpp
     common/shader.cpp
     common/shader.hpp
     common/controls.cpp

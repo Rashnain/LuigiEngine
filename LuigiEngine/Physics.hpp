@@ -89,6 +89,10 @@ struct RigidBodyComponent {
         torqueAccumulator += cross(point - globalCentroid, force);
     };
 
+    vec3 getVelocityAt(const vec3& point) const {
+        return linearVelocity + cross(angularVelocity,point-globalCentroid);
+    };
+
 };
 
 

@@ -202,15 +202,16 @@ void PhysicsSystem::integrate(Registry& registry, float deltaTime){
         rigidBody.angularVelocity *= (1.0f - rigidBody.angularDamping * deltaTime);
         rigidBody.angularVelocity += angularAcceleration * deltaTime;
 
-        if (length(rigidBody.angularVelocity) > 0.00f) {
-            //continue;
-            float angle = length(rigidBody.angularVelocity) * deltaTime;
-            vec3 axis = normalize(rigidBody.angularVelocity);
-            quat deltaRotation = angleAxis(angle, axis);
+        if (length(rigidBody.angularVelocity) > 0.01f) { //tentative pour la stabilité
             quat currentRotation = transform.getRot();
-            quat newRotation = currentRotation * deltaRotation;
+
+            quat omegaQuat = quat(0.0f, rigidBody.angularVelocity.x, rigidBody.angularVelocity.y, rigidBody.angularVelocity.z);
+            quat deltaQuat = 0.5f * omegaQuat * currentRotation;
+
+            quat newRotation = currentRotation + deltaQuat * deltaTime;
             transform.setRot(normalize(newRotation));
         }
+
         
 
         rigidBody.forceAccumulator = vec3(0.0f);

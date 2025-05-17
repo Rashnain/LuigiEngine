@@ -101,7 +101,7 @@ struct OBBCollider : public Collider {
     vec3 halfSize; 
     vec3 rotation;
     
-    OBBCollider(const vec3& halfSize) : halfSize(halfSize){
+    OBBCollider(const vec3& halfSize = vec3(1.0f)) : halfSize(halfSize){
         type = ColliderType::OBB;
         rotation = vec3(0.0f);
         computeInertiaTensor();
@@ -239,6 +239,8 @@ class CollisionDetection {
     static CollisionFn collisionDispatchTable[NUM_COLLIDER_TYPES][NUM_COLLIDER_TYPES];
 
 public:
+
+    static void getWorldOBB(const OBBCollider& collider, const Transform& transform, WorldOBB& worldOBB);
 
     static void collision_sphere_sphere(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB ,const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo);
     static void collision_sphere_cylinder(const Entity entityA, const Collider& colliderA, const Transform& transformA, const Entity entityB, const Collider& colliderB, const Transform& transformB, CollisionInfo& collisionInfo);

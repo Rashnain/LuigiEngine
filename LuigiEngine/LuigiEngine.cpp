@@ -41,6 +41,7 @@ using namespace std;
 #include "SceneRenderer.hpp" // #include "SceneCamera.cpp"
 
 #include "Constraint.hpp"
+#include "Vehicle.hpp"
 
 void processInput(GLFWwindow *window, float deltaTime, Registry & registry, RenderSystem & renderSystem);
 
@@ -157,6 +158,8 @@ Entity debugCube1, debugCube2, debugCube3, debugCube4, debugCube5, debugCube6;
 
 SphereCollider* sphereCollider;
 MeshComponent sphereMeshComponent;
+
+ConstraintSystem constraintSystem;
 
 static std::mt19937 rng(std::random_device{}());
 static std::uniform_int_distribution<int> distName(0, 9999);
@@ -320,7 +323,8 @@ int main()
     RenderSystem renderSystem = RenderSystem();
     CameraSystem cameraSystem = CameraSystem();
     PhysicsSystem physicsSystem = PhysicsSystem();
-    ConstraintSystem constraintSystem = ConstraintSystem();
+    constraintSystem = ConstraintSystem();
+    VehicleSystem vehicleSystem = VehicleSystem();
 
     
 
@@ -345,6 +349,10 @@ int main()
     Mesh* cubeMesh = new Mesh("models/cube.obj");
 
     Mesh* cylinderMesh = new Mesh("models/cylinder.obj");
+
+    Mesh* raceCarMesh = new Mesh("models/vehicle-racer.obj");
+
+    Mesh* wheelMesh = new Mesh("models/wheel-medium.obj");
     //makeCubeMesh(cubeMesh->vertices, cubeMesh->normals, cubeMesh->uvs, cubeMesh->triangles);
 
     /* quand on cree une mesh attache automatiquement un TextureComponent
@@ -373,6 +381,10 @@ int main()
 
     MeshComponent suzanneMeshComponent({{0, suzanneLOD1}}, simpleShaders, {"suzanne.png"}, {"tex"});
 
+    MeshComponent raceCarMeshComponent({{0, raceCarMesh}}, simpleShaders, {"Heightmap_Rocky.png"}, {"tex"});
+
+    MeshComponent wheelMeshComponent({{0, wheelMesh}}, simpleShaders, {"rock.jpg"}, {"tex"});
+
     TextureComponent snowRockTextureComponent = TextureComponent({"snowrock.png"}, {"tex"});
 
      //testing
@@ -385,6 +397,8 @@ int main()
 
     SuspensionConstraint suspensionConstraint;
 
+    Entity raceCarEntity;
+    
     auto setupScene = [&](){
         registry.clear();
         constraintSystem.suspensionConstraints.clear();
@@ -408,6 +422,23 @@ int main()
         auto& body = registry.emplace<RigidBodyComponent>(terrainEntity);
         body.bodyType = PhysicsType::STATIC;
         body.addCollider(cubeCollider);
+
+        {
+            Entity slopeEntity = registry.create();
+
+            Transform& slopeTransform = registry.emplace<Transform>(slopeEntity);
+            slopeTransform.setPos(vec3(12, -2, 0));
+            slopeTransform.setScale(vec3(8, 0.5, 8));
+            slopeTransform.setRot(glm::rotate(mat4(1.0f), glm::radians(30.0f), vec3(0.0f, 0.0f, 1.0f)));
+
+            registry.emplace<MeshComponent>(slopeEntity, testMeshComponent);
+            registry.emplace<Hierarchy>(slopeEntity, std::vector<Entity>{}).name = "Slope";
+            auto& slopeBody = registry.emplace<RigidBodyComponent>(slopeEntity);
+            slopeBody.bodyType = PhysicsType::STATIC;
+            slopeBody.addCollider(new OBBCollider(vec3(1.0f, 1.0f, 1.0f)));
+            slopeBody.mass = 100.0;
+            slopeBody.inverseMass = 1.0 / slopeBody.mass;
+        }
   
 
         //makeFloor(registry, 5, 5, 2.0f);
@@ -504,10 +535,10 @@ int main()
         
         
         
-        Entity cube1Entity = registry.create();
-        registry.emplace<Transform>(cube1Entity).setPos(vec3(3,0,0));
-        registry.get<Transform>(cube1Entity).setScale(vec3(1.0f,0.5f,0.5f));
-        registry.emplace<MeshComponent>(cube1Entity, cubeMeshComponent);
+        /* Entity cube1Entity = registry.create();
+        registry.emplace<Transform>(cube1Entity).setPos(vec3(10,0,0));
+        registry.get<Transform>(cube1Entity).setScale(vec3(3.0f,3.0f,3.5f));
+        registry.emplace<MeshComponent>(cube1Entity, raceCarMeshComponent);
         registry.emplace<Hierarchy>(cube1Entity, vector<Entity>{}).name = "Cube1";
         registry.emplace<RigidBodyComponent>(cube1Entity).addCollider(cubeCollider);
 
@@ -517,17 +548,22 @@ int main()
         suspensionConstraint.direction = vec3(0.0f, -1.0f, 0.0f);
         suspensionConstraint.initialLength = 1.0f;
         suspensionConstraint.stiffness = 10000.0f;
-        suspensionConstraint.damping = 0.1f;
+        suspensionConstraint.damping = 1000.0f;
 
-        constraintSystem.suspensionConstraints.push_back(suspensionConstraint);
+        constraintSystem.suspensionConstraints.push_back(suspensionConstraint); */
 
-        /*
-        Entity sphere2Entity = registry.create();
-        registry.emplace<Transform>(sphere2Entity).setPos(vec3(5,0,0));
-        registry.emplace<MeshComponent>(sphere2Entity, sphereMeshComponent);
-        registry.emplace<Hierarchy>(sphere2Entity, vector<Entity>{}).name = "Sphere2";
-        registry.emplace<RigidBodyComponent>(sphere2Entity).mesh = sphereLOD1;
-        registry.get<RigidBodyComponent>(sphere2Entity).colliders.push_back(sphereCollider); */
+        raceCarEntity = registry.create();
+        VehicleComponent& vehicle = registry.emplace<VehicleComponent>(raceCarEntity);
+        vehicle.setup(registry, constraintSystem, raceCarMeshComponent, wheelMeshComponent, vec3(0.0f, 5.0f, 0.0f), vec3(3.0f), 2.0f, 2.0f);
+
+        Transform& raceCarTransform = registry.get<Transform>(raceCarEntity);
+        float randomAngle = std::uniform_real_distribution<float>(0.0f, glm::two_pi<float>())(rng);
+        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), randomAngle, glm::vec3(0.0f, 1.0f, 0.0f));
+        raceCarTransform.setRot(rotation * raceCarTransform.getRot());
+
+        //raceCar = Vehicle(registry, constraintSystem, raceCarMeshComponent, wheelMeshComponent, vec3(3.0f, 5.0f, 3.0f), vec3(3.0f), 1.0f, 1.0f);
+
+
         std::cout << "creating boxes " << std::endl;
 
         int size = 5;
@@ -608,13 +644,7 @@ int main()
                 transformSystem.update(registry); 
                 physicsSystem.update(registry, (physicsStep * timeScale / (float) physicsPrecision));
                 constraintSystem.update(registry, (physicsStep * timeScale / (float) physicsPrecision));
-
-
-                RigidBodyComponent& carBody = registry.get<RigidBodyComponent>(suspensionConstraint.entity);
-                Transform& carTransform = registry.get<Transform>(suspensionConstraint.entity);
-                vec3 suspensionEnd = carTransform.getGlobalModel() * vec4(suspensionConstraint.localAnchor + suspensionConstraint.direction * suspensionConstraint.initialLength, 1.0f);
-                registry.get<Transform>(debugCube1).setPos(suspensionEnd);
-
+                
             }
             double physicsEndTime = glfwGetTime();
             double physicsDuration = physicsEndTime - physicsStartTime;
@@ -651,6 +681,34 @@ int main()
         } else {
             transformSystem.update(registry); 
         }
+        
+
+       
+
+        vehicleSystem.update(registry, (physicsStep * timeScale / (float) physicsPrecision));
+
+        VehicleComponent& vehicle = registry.get<VehicleComponent>(raceCarEntity);
+        //debug
+        registry.get<Transform>(debugCube1).setPos(vehicle.FLSuspension->endPointWorld);
+        registry.get<Transform>(debugCube2).setPos(vehicle.FRSuspension->endPointWorld);
+        registry.get<Transform>(debugCube3).setPos(vehicle.BLSuspension->endPointWorld);
+        registry.get<Transform>(debugCube4).setPos(vehicle.BRSuspension->endPointWorld);
+        
+        if(vehicle.FLSuspension->isColliding){
+            registry.get<Transform>(debugCube1).setPos(vehicle.FLSuspension->collisionPoint);
+        }
+        if(vehicle.FRSuspension->isColliding){
+            registry.get<Transform>(debugCube2).setPos(vehicle.FRSuspension->collisionPoint);
+        }
+        if(vehicle.BLSuspension->isColliding){
+            registry.get<Transform>(debugCube3).setPos(vehicle.BLSuspension->collisionPoint);
+        }
+        if(vehicle.BRSuspension->isColliding){
+            registry.get<Transform>(debugCube4).setPos(vehicle.BRSuspension->collisionPoint);
+        }
+
+
+
         
 
         if (sceneRenderer.isInitialized()) {
