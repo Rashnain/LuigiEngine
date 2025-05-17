@@ -216,11 +216,11 @@ int main()
         {20, &terrainMeshLOD4}, {25, &terrainMeshLOD5}, {30, &terrainMeshLOD6}},
         terrainShaders,{terrainHeightmap, "snowrock.png", "rock.png", "grass.png"},
         {"heightmap_tex", "snowrock_tex", "rock_tex", "grass_tex"});
-    MeshComponent sphereBrickMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, pbrShaders, {}, {}, "brick");
-    MeshComponent sphereMetalMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, pbrShaders, {}, {}, "metal");
-    MeshComponent sphereWoodMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, pbrShaders, {}, {}, "wood");
-    MeshComponent sphereRustMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, pbrShaders, {}, {}, "rust");
-    MeshComponent sphereWhiteballMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, pbrShaders, {}, {}, "whiteball");
+    MeshComponent sphereBrickMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, pbrShaders, {}, {}, "brick", "interior");
+    MeshComponent sphereMetalMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, pbrShaders, {}, {}, "metal", "interior");
+    MeshComponent sphereWoodMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, pbrShaders, {}, {}, "wood", "interior");
+    MeshComponent sphereRustMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, pbrShaders, {}, {}, "rust", "interior");
+    MeshComponent sphereWhiteballMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, pbrShaders, {}, {}, "whiteball", "interior");
 
     cameraWorldSideEntity = registry.create();
     cameraWorldUpEntity = registry.create();

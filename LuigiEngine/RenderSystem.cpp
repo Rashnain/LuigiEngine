@@ -46,9 +46,12 @@ void RenderSystem::bindTextureUniforms(const MeshComponent &meshComp,
   for (int i = 0; i < textures.textureIDs.size(); i++) {
     glActiveTexture(GL_TEXTURE0 + i);
     glBindTexture(GL_TEXTURE_2D, textures.textureIDs[i]);
-    glUniform1i(glGetUniformLocation(meshComp.programID,
-                                     textures.texUniforms[i].c_str()),
-                i);
+    glUniform1i(glGetUniformLocation(meshComp.programID, textures.texUniforms[i].c_str()), i);
+  }
+  if (meshComp.cubeMapID != 0) {
+    glActiveTexture(GL_TEXTURE31);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, meshComp.cubeMapID);
+    glUniform1i(glGetUniformLocation(meshComp.programID, "cubeMap"), 31);
   }
 }
 

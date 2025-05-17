@@ -32,6 +32,7 @@ struct MeshComponent {
     GLuint programID;
     mat4* mvp;
     string material = "";
+	GLuint cubeMapID = 0;
 
 	MeshComponent() = default;
 
@@ -40,7 +41,8 @@ struct MeshComponent {
         GLuint programID,
         const vector<string>& texFiles_in = {},
         const vector<string>& texUniforms_in = {},
-        const string& material = ""
+        const string& material = "",
+        const string& cubeMap = ""
     ) : meshes(meshes), activeMesh(meshes.empty() ? nullptr : meshes[0].second), programID(programID), mvp(nullptr) {
 
 			createVBO();
@@ -52,6 +54,8 @@ struct MeshComponent {
 				texFiles = {material+"/albedo.png", material+"/ao.png", material+"/metallic.png",
 								material+"/normal.png", material+"/roughness.png"};
 				texUniforms = {"albedoMap", "aoMap", "metallicMap", "normal", "roughnessMap"};
+				if (!cubeMap.empty())
+					cubeMapID = loadCubemap("textures/cubemap/"+cubeMap+"/");
 			}
     }
 
@@ -59,6 +63,7 @@ struct MeshComponent {
     void createVBO();
     void clearVBO();
     void checkLOD(const vec3& cameraPos, const vec3& entityPos);
+	static GLuint loadCubemap(string folder);
 
 	void onAttach(Registry& registry, Entity entity);
     void onDetach(Registry& registry, Entity entity){};

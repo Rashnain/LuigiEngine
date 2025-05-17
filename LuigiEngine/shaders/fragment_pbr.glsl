@@ -17,6 +17,7 @@ uniform vec3 lightPositions[3];
 uniform vec3 lightColors[3];
 
 uniform vec3 camPos;
+uniform samplerCube cubeMap;
 
 const float PI = 3.14159265359;
 
@@ -69,6 +70,8 @@ void main() {
 
     vec3 N = normalize(normal);
     vec3 V = normalize(camPos - WorldPos);
+    vec3 I = normalize(WorldPos - camPos);
+    vec3 R = reflect(I, N);
 
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metallic);
@@ -108,5 +111,6 @@ void main() {
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0/2.2));
 
-    FragColor = vec4(color, 0.0);
+    vec3 cubeMapColor = texture(cubeMap, R).rgb;
+    FragColor = vec4(color + cubeMapColor*0, 0.0);
 }
