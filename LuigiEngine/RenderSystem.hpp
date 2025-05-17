@@ -19,7 +19,7 @@ public:
     void render(Registry& registry);
 
 private:
-    void setupMeshRendering(const MeshComponent& meshComp);
+    void setupMeshRendering(const MeshComponent &meshComp, Transform &meshTransform, Transform &camTransform);
     void bindTextureUniforms(const MeshComponent& meshComp, const TextureComponent& textures);
     void renderMesh(const MeshComponent& meshComp, const TextureComponent* textures);
 };

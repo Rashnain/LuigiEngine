@@ -9,7 +9,7 @@ layout (location = 3) in vec2 uv;
 // Values that stay constant for the whole mesh.
 uniform mat4 mvp;
 uniform sampler2D heightmap_tex;
-uniform float multiplier = 1;
+uniform float multiplier = 0.5;
 
 out vec2 tex_coord;
 out vec3 vtx_position;

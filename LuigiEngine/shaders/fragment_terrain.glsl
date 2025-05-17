@@ -10,7 +10,7 @@ out vec3 color;
 uniform sampler2D snowrock_tex;
 uniform sampler2D rock_tex;
 uniform sampler2D grass_tex;
-uniform float multiplier = 1;
+uniform float multiplier = 0.5;
 
 void main() {
     if (vtx_position.y < 0.2 * multiplier)

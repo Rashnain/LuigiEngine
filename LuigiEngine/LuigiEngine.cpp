@@ -183,37 +183,24 @@ int main()
     Mesh* suzanneLOD1 = new Mesh("models/suzanneLOD1.obj");
 
     GLuint simpleShaders = LoadShaders("shaders/vertex.glsl", "shaders/fragment.glsl");
-    GLuint phongShaders = LoadShaders("shaders/vertex_phong.glsl", "shaders/fragment_phong.glsl");
     GLuint pbrShaders = LoadShaders("shaders/vertex_pbr.glsl", "shaders/fragment_pbr.glsl");
     GLuint terrainShaders = LoadShaders("shaders/vertex_terrain.glsl", "shaders/fragment_terrain.glsl");
 
-    // Mesh terrainMeshLOD1;
-    // createFlatTerrain({128, 128}, terrainSize, terrainMeshLOD1.vertices, terrainMeshLOD1.triangles, terrainMeshLOD1.uvs);
-    // Mesh terrainMeshLOD2;
-    // createFlatTerrain({64, 64}, terrainSize, terrainMeshLOD2.vertices, terrainMeshLOD2.triangles, terrainMeshLOD2.uvs);
-    // Mesh terrainMeshLOD3;
-    // createFlatTerrain({32, 32}, terrainSize, terrainMeshLOD3.vertices, terrainMeshLOD3.triangles, terrainMeshLOD3.uvs);
-    // Mesh terrainMeshLOD4;
-    // createFlatTerrain({16, 16}, terrainSize, terrainMeshLOD4.vertices, terrainMeshLOD4.triangles, terrainMeshLOD4.uvs);
-    // Mesh terrainMeshLOD5;
-    // createFlatTerrain({8, 8}, terrainSize, terrainMeshLOD5.vertices, terrainMeshLOD5.triangles, terrainMeshLOD5.uvs);
-    // Mesh terrainMeshLOD6;
-    // createFlatTerrain({4, 4}, terrainSize, terrainMeshLOD6.vertices, terrainMeshLOD6.triangles, terrainMeshLOD6.uvs);
-    // const string terrainHeightmap = "Heightmap_Mountain.png";
-    // int heightmapNrChannels;
-    // heightmapData = stbi_load(("textures/" + terrainHeightmap).c_str(), &heightmapWidth, &heightmapHeight, &heightmapNrChannels, 0);
-    // SceneMesh terrain({{0, &terrainMeshLOD1}, {10, &terrainMeshLOD2}, {15, &terrainMeshLOD3},
-    //     {20, &terrainMeshLOD4}, {25, &terrainMeshLOD5}, {30, &terrainMeshLOD6}},
-    //     {terrainHeightmap, "snowrock.png", "rock.png", "grass.png"},
-    //     {"heightmap_tex", "snowrock_tex", "rock_tex", "grass_tex"}, terrainShaders);
-    // SceneMeshPhong* suzanne = new SceneMeshPhong({{0, suzanneLOD1}, {1.25, suzanneLOD2}, {2.5, suzanneLOD3}},
-    //     {"suzanne.png"}, {"tex"}, phongShaders, Material(0.5, 1, 0, 0));
-
-    // SceneMeshPBR sphere_pbr_brick({{0, sphereLOD1}, {10, sphereLOD2}}, "brick", pbrShaders);
-    // SceneMeshPBR sphere_pbr_metal({{0, sphereLOD1}, {10, sphereLOD2}}, "metal", pbrShaders);
-    // SceneMeshPBR sphere_pbr_wood({{0, sphereLOD1}, {10, sphereLOD2}}, "wood", pbrShaders);
-    // SceneMeshPBR sphere_pbr_rust({{0, sphereLOD1}, {10, sphereLOD2}}, "rust", pbrShaders);
-    // SceneMeshPBR sphere_pbr_white({{0, sphereLOD1}, {10, sphereLOD2}}, "whiteball", pbrShaders);
+    Mesh terrainMeshLOD1;
+    createFlatTerrain({128, 128}, terrainSize, terrainMeshLOD1.vertices, terrainMeshLOD1.triangles, terrainMeshLOD1.uvs);
+    Mesh terrainMeshLOD2;
+    createFlatTerrain({64, 64}, terrainSize, terrainMeshLOD2.vertices, terrainMeshLOD2.triangles, terrainMeshLOD2.uvs);
+    Mesh terrainMeshLOD3;
+    createFlatTerrain({32, 32}, terrainSize, terrainMeshLOD3.vertices, terrainMeshLOD3.triangles, terrainMeshLOD3.uvs);
+    Mesh terrainMeshLOD4;
+    createFlatTerrain({16, 16}, terrainSize, terrainMeshLOD4.vertices, terrainMeshLOD4.triangles, terrainMeshLOD4.uvs);
+    Mesh terrainMeshLOD5;
+    createFlatTerrain({8, 8}, terrainSize, terrainMeshLOD5.vertices, terrainMeshLOD5.triangles, terrainMeshLOD5.uvs);
+    Mesh terrainMeshLOD6;
+    createFlatTerrain({4, 4}, terrainSize, terrainMeshLOD6.vertices, terrainMeshLOD6.triangles, terrainMeshLOD6.uvs);
+    const string terrainHeightmap = "Heightmap_Mountain.png";
+    int heightmapNrChannels;
+    heightmapData = stbi_load(("textures/" + terrainHeightmap).c_str(), &heightmapWidth, &heightmapHeight, &heightmapNrChannels, 0);
 
     // quand on cree un mesh on attache automatiquement un TextureComponent
     // TextureComponent textureComponent;
@@ -224,7 +211,16 @@ int main()
     //on pourrait peut creer un ShaderComponent pour savoir quelle shader utilise et stocke les uniforms
     MeshComponent sunMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, simpleShaders, {"sun.jpg"}, {"tex"});
     MeshComponent earthMeshComponent = MeshComponent({{0, sphereLOD1}, {35, suzanneLOD1}}, simpleShaders, {"earth.jpg"}, {"tex"});
-    MeshComponent moonMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, simpleShaders,{"moon.jpg"}, {"tex"} );
+    MeshComponent moonMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, simpleShaders,{"moon.jpg"}, {"tex"});
+    MeshComponent terrainMeshComponent = MeshComponent({{0, &terrainMeshLOD1}, {10, &terrainMeshLOD2}, {15, &terrainMeshLOD3},
+        {20, &terrainMeshLOD4}, {25, &terrainMeshLOD5}, {30, &terrainMeshLOD6}},
+        terrainShaders,{terrainHeightmap, "snowrock.png", "rock.png", "grass.png"},
+        {"heightmap_tex", "snowrock_tex", "rock_tex", "grass_tex"});
+    MeshComponent sphereBrickMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, pbrShaders, {}, {}, "brick");
+    MeshComponent sphereMetalMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, pbrShaders, {}, {}, "metal");
+    MeshComponent sphereWoodMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, pbrShaders, {}, {}, "wood");
+    MeshComponent sphereRustMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, pbrShaders, {}, {}, "rust");
+    MeshComponent sphereWhiteballMeshComponent = MeshComponent({{0, sphereLOD1}, {10, sphereLOD2}}, pbrShaders, {}, {}, "whiteball");
 
     cameraWorldSideEntity = registry.create();
     cameraWorldUpEntity = registry.create();
@@ -232,11 +228,23 @@ int main()
     Entity sunEntity = registry.create();
     Entity earthEntity = registry.create();
     Entity moonEntity = registry.create();
+    Entity terrainEntity = registry.create();
+    Entity sphereBrickEntity = registry.create();
+    Entity sphereMetalEntity = registry.create();
+    Entity sphereWoodEntity = registry.create();
+    Entity sphereRustEntity = registry.create();
+    Entity sphereWhiteballEntity = registry.create();
 
     registry.emplace<MeshComponent>(sunEntity,sunMeshComponent);
     registry.emplace<MeshComponent>(earthEntity, earthMeshComponent);
     registry.emplace<MeshComponent>(moonEntity, moonMeshComponent);
-    
+    registry.emplace<MeshComponent>(terrainEntity, terrainMeshComponent);
+    registry.emplace<MeshComponent>(sphereBrickEntity, sphereBrickMeshComponent);
+    registry.emplace<MeshComponent>(sphereMetalEntity, sphereMetalMeshComponent);
+    registry.emplace<MeshComponent>(sphereWoodEntity, sphereWoodMeshComponent);
+    registry.emplace<MeshComponent>(sphereRustEntity, sphereRustMeshComponent);
+    registry.emplace<MeshComponent>(sphereWhiteballEntity, sphereWhiteballMeshComponent);
+
     // Projection matrix : 45 Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
     mat4 pers = perspective(radians(45.0f), 1.0f * SCR_WIDTH / SCR_HEIGHT, 0.1f, 1000.0f);
     
@@ -245,22 +253,34 @@ int main()
     registry.emplace<CameraComponent>(cameraWorldUpEntity, pers).speed = 5.0f;
     registry.emplace<CameraComponent>(cameraEarthEntity, pers).speed = 5.0f;
 
-    renderSystem.activeCamera = cameraWorldSideEntity;
+    renderSystem.activeCamera = cameraEarthEntity;
 
     registry.emplace<Transform>(cameraWorldSideEntity).addPos({0, 0, 35});
     registry.emplace<Transform>(cameraWorldUpEntity).addPos({0, 50, 0});
     registry.get<Transform>(cameraWorldUpEntity).setRot(quat({-M_PI/2, 0, 0}));
-    registry.emplace<Transform>(cameraEarthEntity).addPos({0, 0, 7.5});
+    registry.emplace<Transform>(cameraEarthEntity).addPos({0, .25, 3});
     // TODO bug si pas dans le bon ordre !!!
     registry.emplace<Transform>(earthEntity).setPos({5, 0, 0});
+    registry.emplace<Transform>(terrainEntity).setPos({-1, -.75, 0});
+    registry.emplace<Transform>(sphereBrickEntity).setPos({-.85, .35, 1});
+    registry.emplace<Transform>(sphereMetalEntity).setPos({-.425, .35, 1});
+    registry.emplace<Transform>(sphereWoodEntity).setPos({0, .35, 1});
+    registry.emplace<Transform>(sphereRustEntity).setPos({.425, .35, 1});
+    registry.emplace<Transform>(sphereWhiteballEntity).setPos({.85, .35, 1});
     registry.emplace<Transform>(moonEntity).setPos({5, 0, 0});
-    registry.emplace<Transform>(sunEntity).setPos({0,0,0});
+    registry.emplace<Transform>(sunEntity).setPos({0, 0, 0});
 
     registry.get<Transform>(sunEntity).setScale(vec3(2));
     registry.get<Transform>(earthEntity).setScale(vec3(0.5));
     registry.get<Transform>(moonEntity).setScale(vec3(1737.0 / 6378));
+    registry.get<Transform>(terrainEntity).setScale(vec3(2));
+    registry.get<Transform>(sphereBrickEntity).setScale(vec3(.2));
+    registry.get<Transform>(sphereMetalEntity).setScale(vec3(.2));
+    registry.get<Transform>(sphereWoodEntity).setScale(vec3(.2));
+    registry.get<Transform>(sphereRustEntity).setScale(vec3(.2));
+    registry.get<Transform>(sphereWhiteballEntity).setScale(vec3(.2));
 
-    registry.emplace<Hierarchy>(earthEntity, sunEntity, vector{moonEntity});
+    registry.emplace<Hierarchy>(earthEntity, sunEntity, vector{moonEntity, terrainEntity, sphereBrickEntity, sphereMetalEntity, sphereWoodEntity, sphereRustEntity, sphereWhiteballEntity});
     registry.emplace<Hierarchy>(cameraEarthEntity, earthEntity, vector<Entity>{});
 
     Console& console = Console::getInstance();

@@ -4,11 +4,29 @@
 
 using namespace glm;
 
-void RenderSystem::setupMeshRendering(const MeshComponent &meshComp) {
+void RenderSystem::setupMeshRendering(const MeshComponent &meshComp, Transform &meshTransform, Transform &camTransform) {
 
   glUseProgram(meshComp.programID);
   glUniformMatrix4fv(glGetUniformLocation(meshComp.programID, "mvp"), 1, GL_FALSE,
                      &meshComp.mvp[0][0][0]);
+
+  // PBR shader
+  if (!meshComp.material.empty()) {
+    vector<vec3> lights = {{0.0f, 0.0f, 0.0f}, {0.0f, 10.0f, 0.0f}, {0.0f, -10.0f, 0.0f}};
+    vector<vec3> lightColors = {{255.0f, 0.0f, 0.0f}, {0.0f, 255.0f, 0.0f}, {0.0f, 0.0f, 255.0f}};
+    vec3 cameraPos = vec3(camTransform.getGlobalModel()[3]);
+
+    mat3 globalRot = mat3(meshTransform.getGlobalModel());
+    globalRot[0] = normalize(globalRot[0]);
+    globalRot[1] = normalize(globalRot[1]);
+    globalRot[2] = normalize(globalRot[2]);
+
+    glUniformMatrix4fv(glGetUniformLocation(meshComp.programID, "model"), 1, GL_FALSE, &meshTransform.getGlobalModel()[0][0]);
+    glUniformMatrix3fv(glGetUniformLocation(meshComp.programID, "rotation"), 1, GL_FALSE, &globalRot[0][0]);
+    glUniform3fv(glGetUniformLocation(meshComp.programID, "lightPositions"), lights.size(), &lights[0][0]);
+    glUniform3fv(glGetUniformLocation(meshComp.programID, "lightColors"), lightColors.size(), &lightColors[0][0]);
+    glUniform3f(glGetUniformLocation(meshComp.programID, "camPos"), cameraPos[0], cameraPos[1], cameraPos[2]);
+  }
 
   glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, meshComp.vertexbuffer);
@@ -63,7 +81,7 @@ void RenderSystem::render(Registry &registry) {
       meshComp.checkLOD(cameraPos, entityPos);
     }
 
-    setupMeshRendering(meshComp);
+    setupMeshRendering(meshComp, transform, cameraTransform);
 
     if (registry.has<TextureComponent>(entity)) {
       TextureComponent &textures = registry.get<TextureComponent>(entity);

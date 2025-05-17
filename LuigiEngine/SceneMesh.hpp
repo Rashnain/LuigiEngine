@@ -31,6 +31,7 @@ struct MeshComponent {
 
     GLuint programID;
     mat4* mvp;
+    string material = "";
 
 	MeshComponent() = default;
 
@@ -38,13 +39,20 @@ struct MeshComponent {
         const vector<pair<double, Mesh*>>& meshes,
         GLuint programID,
         const vector<string>& texFiles_in = {},
-        const vector<string>& texUniforms_in = {}
+        const vector<string>& texUniforms_in = {},
+        const string& material = ""
     ) : meshes(meshes), activeMesh(meshes.empty() ? nullptr : meshes[0].second), programID(programID), mvp(nullptr) {
 
 			createVBO();
-
-			texUniforms = texUniforms_in;
-			texFiles = texFiles_in;
+			if (material.empty()) {
+				texFiles = texFiles_in;
+				texUniforms = texUniforms_in;
+			} else {
+				this->material = material;
+				texFiles = {material+"/albedo.png", material+"/ao.png", material+"/metallic.png",
+								material+"/normal.png", material+"/roughness.png"};
+				texUniforms = {"albedoMap", "aoMap", "metallicMap", "normal", "roughnessMap"};
+			}
     }
 
 
